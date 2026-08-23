@@ -14,7 +14,7 @@
     .card { background: white; border-radius: 20px; padding: 30px; width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); text-align: center; }
     .card h1 { font-size: 20px; margin: 10px 0; }
     .card p { color: #6b7280; font-size: 13px; margin-bottom: 20px; }
-    input { width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 15px; }
+    input, select { width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 15px; }
     button { padding: 12px; background: #1a73e8; color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: bold; cursor: pointer; }
     button:disabled { background: #a0aec0; }
     .fullBtn { width: 100%; }
@@ -28,12 +28,32 @@
     header .who b { display: block; font-size: 16px; }
     header .who span { font-size: 12px; opacity: 0.85; }
     header button { background: rgba(255,255,255,0.2); color: white; padding: 8px 14px; border-radius: 8px; font-size: 13px; }
+    nav { display: flex; gap: 8px; padding: 10px 16px; background: white; border-bottom: 1px solid #e5e7eb; }
+    nav button { flex: 1; background: #f5f7fb; color: #4b5563; padding: 10px; border-radius: 8px; font-weight: bold; }
+    nav button.active { background: #e8f0fe; color: #1a73e8; }
     main { padding: 16px; }
+
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .stat { background: white; border-radius: 14px; padding: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); text-align: center; }
     .stat .num { font-size: 26px; font-weight: bold; color: #1a73e8; }
     .stat .lbl { font-size: 12px; color: #6b7280; margin-top: 4px; }
     .loadingMsg { text-align: center; padding: 30px; color: #6b7280; grid-column: 1 / -1; }
+
+    .sectionTitle { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .sectionTitle h2 { margin: 0; font-size: 18px; }
+    .fab { background: #1a73e8; color: white; padding: 8px 14px; border-radius: 8px; font-size: 13px; }
+
+    .studentCard { background: white; border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .studentCard b { font-size: 15px; }
+    .studentCard .meta { font-size: 12px; color: #6b7280; margin-top: 4px; }
+
+    .formBox { background: white; border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+    .formBox h3 { margin: 0 0 12px; font-size: 15px; }
+    .formRow { display: flex; gap: 10px; }
+    .formRow input, .formRow select { flex: 1; }
+    .formActions { display: flex; gap: 10px; margin-top: 8px; }
+    .btnSecondary { background: #e5e7eb; color: #374151; flex: 1; }
+    .btnPrimary { flex: 1; }
   </style>
 </head>
 <body>
@@ -59,10 +79,55 @@
       </div>
       <button onclick="doLogout()">Logout</button>
     </header>
+    <nav>
+      <button id="navDashboard" class="active" onclick="switchTab('dashboard')">Dashboard</button>
+      <button id="navStudents" onclick="switchTab('students')">Students</button>
+    </nav>
     <main>
-      <h2>Dashboard</h2>
-      <div class="grid" id="statsGrid">
-        <div class="loadingMsg">Loading...</div>
+      <!-- Dashboard tab -->
+      <div id="tabDashboard">
+        <div class="grid" id="statsGrid">
+          <div class="loadingMsg">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Students tab -->
+      <div id="tabStudents" class="hidden">
+        <div class="sectionTitle">
+          <h2>Students</h2>
+          <button class="fab" onclick="toggleAddStudentForm()">+ Add Student</button>
+        </div>
+
+        <div class="formBox hidden" id="addStudentForm">
+          <h3>Add New Student</h3>
+          <input id="s_name" placeholder="Full Name">
+          <div class="formRow">
+            <input id="s_class" placeholder="Class (e.g. 5)">
+            <input id="s_section" placeholder="Section (e.g. A)">
+          </div>
+          <div class="formRow">
+            <input id="s_dob" type="date" placeholder="DOB">
+            <select id="s_gender">
+              <option value="">Gender</option>
+              <option>Male</option>
+              <option>Female</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <input id="s_father" placeholder="Father's Name">
+          <input id="s_mother" placeholder="Mother's Name">
+          <input id="s_contact" placeholder="Contact Number" inputmode="tel">
+          <input id="s_address" placeholder="Address">
+          <div class="formActions">
+            <button class="btnSecondary" onclick="toggleAddStudentForm()">Cancel</button>
+            <button class="btnPrimary" id="saveStudentBtn" onclick="saveStudent()">Save</button>
+          </div>
+          <div id="studentFormMessage" style="margin-top:10px;font-size:13px;"></div>
+        </div>
+
+        <div id="studentsList">
+          <div class="loadingMsg">Loading...</div>
+        </div>
       </div>
     </main>
   </div>
@@ -73,7 +138,7 @@
     const SUPABASE_KEY = "sb_publishable_SAEI4DqB41pWQxeAHAQIJg_Oz_Iat_Q";
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    let currentUser = null; // { staff_id, staff_name, role, school_id, ... }
+    let currentUser = null;
     let currentSessionId = null;
 
     async function doLogin() {
@@ -86,27 +151,17 @@
         messageDiv.innerHTML = '<span class="error">Username aur password dono bharo</span>';
         return;
       }
-
       btn.disabled = true;
       btn.innerText = 'Checking...';
       messageDiv.innerHTML = '';
 
-      const { data, error } = await client.rpc('verify_login', {
-        p_username: username,
-        p_password: password
-      });
+      const { data, error } = await client.rpc('verify_login', { p_username: username, p_password: password });
 
       btn.disabled = false;
       btn.innerText = 'Login';
 
-      if (error) {
-        messageDiv.innerHTML = '<span class="error">Error: ' + error.message + '</span>';
-        return;
-      }
-      if (!data || data.length === 0) {
-        messageDiv.innerHTML = '<span class="error">Galat username ya password</span>';
-        return;
-      }
+      if (error) { messageDiv.innerHTML = '<span class="error">Error: ' + error.message + '</span>'; return; }
+      if (!data || data.length === 0) { messageDiv.innerHTML = '<span class="error">Galat username ya password</span>'; return; }
 
       currentUser = data[0];
       enterApp();
@@ -118,13 +173,9 @@
       document.getElementById('staffName').innerText = currentUser.staff_name;
       document.getElementById('staffRole').innerText = currentUser.role + ' - ' + currentUser.school_name;
 
-      // Find this school's currently active session
       const { data: sessionData, error: sessionError } = await client
-        .from('sessions')
-        .select('id, name')
-        .eq('school_id', currentUser.school_id)
-        .eq('is_active', true)
-        .limit(1);
+        .from('sessions').select('id, name')
+        .eq('school_id', currentUser.school_id).eq('is_active', true).limit(1);
 
       if (sessionError || !sessionData || sessionData.length === 0) {
         document.getElementById('statsGrid').innerHTML = '<div class="loadingMsg">Koi active session nahi mila</div>';
@@ -134,56 +185,40 @@
       loadDashboard();
     }
 
+    function switchTab(tab) {
+      document.getElementById('tabDashboard').classList.toggle('hidden', tab !== 'dashboard');
+      document.getElementById('tabStudents').classList.toggle('hidden', tab !== 'students');
+      document.getElementById('navDashboard').classList.toggle('active', tab === 'dashboard');
+      document.getElementById('navStudents').classList.toggle('active', tab === 'students');
+      if (tab === 'dashboard') loadDashboard();
+      if (tab === 'students') loadStudents();
+    }
+
     async function loadDashboard() {
       const grid = document.getElementById('statsGrid');
       grid.innerHTML = '<div class="loadingMsg">Loading...</div>';
-
       const today = new Date().toISOString().slice(0, 10);
 
-      // Total students
-      const { count: totalStudents } = await client
-        .from('students')
-        .select('*', { count: 'exact', head: true })
-        .eq('school_id', currentUser.school_id)
-        .eq('session_id', currentSessionId);
+      const { count: totalStudents } = await client.from('students').select('*', { count: 'exact', head: true })
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId);
 
-      // Present today
-      const { count: presentToday } = await client
-        .from('attendance')
-        .select('*', { count: 'exact', head: true })
-        .eq('school_id', currentUser.school_id)
-        .eq('session_id', currentSessionId)
-        .eq('date', today)
-        .eq('status', 'Present');
+      const { count: presentToday } = await client.from('attendance').select('*', { count: 'exact', head: true })
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId).eq('date', today).eq('status', 'Present');
 
-      // Absent today
-      const { count: absentToday } = await client
-        .from('attendance')
-        .select('*', { count: 'exact', head: true })
-        .eq('school_id', currentUser.school_id)
-        .eq('session_id', currentSessionId)
-        .eq('date', today)
-        .eq('status', 'Absent');
+      const { count: absentToday } = await client.from('attendance').select('*', { count: 'exact', head: true })
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId).eq('date', today).eq('status', 'Absent');
 
-      // Pending fees: students whose (base - discount + van) > total paid
-      const { data: structures } = await client
-        .from('fee_structure')
-        .select('student_id, base_fee, discount, van_fee')
-        .eq('school_id', currentUser.school_id)
-        .eq('session_id', currentSessionId);
-      const { data: payments } = await client
-        .from('fee_payments')
-        .select('student_id, amount')
-        .eq('school_id', currentUser.school_id)
-        .eq('session_id', currentSessionId);
+      const { data: structures } = await client.from('fee_structure').select('student_id, base_fee, discount, van_fee')
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId);
+      const { data: payments } = await client.from('fee_payments').select('student_id, amount')
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId);
 
       const paidByStudent = {};
       (payments || []).forEach(p => { paidByStudent[p.student_id] = (paidByStudent[p.student_id] || 0) + Number(p.amount); });
       let pendingFees = 0;
       (structures || []).forEach(fs => {
         const due = Number(fs.base_fee) - Number(fs.discount) + Number(fs.van_fee);
-        const paid = paidByStudent[fs.student_id] || 0;
-        if (due > paid) pendingFees++;
+        if (due > (paidByStudent[fs.student_id] || 0)) pendingFees++;
       });
 
       grid.innerHTML = `
@@ -192,6 +227,87 @@
         <div class="stat"><div class="num">${absentToday || 0}</div><div class="lbl">Absent Today</div></div>
         <div class="stat"><div class="num">${pendingFees}</div><div class="lbl">Pending Fees</div></div>
       `;
+    }
+
+    async function loadStudents() {
+      const listEl = document.getElementById('studentsList');
+      listEl.innerHTML = '<div class="loadingMsg">Loading...</div>';
+
+      const { data, error } = await client.from('students').select('*')
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId)
+        .order('created_at', { ascending: false });
+
+      if (error) { listEl.innerHTML = '<div class="loadingMsg">Error: ' + error.message + '</div>'; return; }
+      if (!data || data.length === 0) { listEl.innerHTML = '<div class="loadingMsg">Koi student nahi mila</div>'; return; }
+
+      listEl.innerHTML = data.map(s => `
+        <div class="studentCard">
+          <b>${escapeHtml(s.name)}</b>
+          <div class="meta">${escapeHtml(s.student_code)} &middot; Class ${escapeHtml(s.class)}${s.section ? '-' + escapeHtml(s.section) : ''}</div>
+          <div class="meta">Father: ${escapeHtml(s.father_name || '-')} &middot; Contact: ${escapeHtml(s.contact_no || '-')}</div>
+        </div>
+      `).join('');
+    }
+
+    function toggleAddStudentForm() {
+      document.getElementById('addStudentForm').classList.toggle('hidden');
+      document.getElementById('studentFormMessage').innerHTML = '';
+    }
+
+    async function saveStudent() {
+      const name = document.getElementById('s_name').value.trim();
+      const cls = document.getElementById('s_class').value.trim();
+      const section = document.getElementById('s_section').value.trim();
+      const dob = document.getElementById('s_dob').value || null;
+      const gender = document.getElementById('s_gender').value;
+      const father = document.getElementById('s_father').value.trim();
+      const mother = document.getElementById('s_mother').value.trim();
+      const contact = document.getElementById('s_contact').value.trim();
+      const address = document.getElementById('s_address').value.trim();
+      const msgEl = document.getElementById('studentFormMessage');
+      const btn = document.getElementById('saveStudentBtn');
+
+      if (!name || !cls) {
+        msgEl.innerHTML = '<span class="error">Name aur Class zaroori hai</span>';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerText = 'Saving...';
+      msgEl.innerHTML = '';
+
+      const { data, error } = await client.rpc('add_student', {
+        p_school_id: currentUser.school_id,
+        p_session_id: currentSessionId,
+        p_name: name,
+        p_class: cls,
+        p_section: section,
+        p_dob: dob,
+        p_gender: gender,
+        p_father_name: father,
+        p_mother_name: mother,
+        p_contact_no: contact,
+        p_address: address
+      });
+
+      btn.disabled = false;
+      btn.innerText = 'Save';
+
+      if (error) {
+        msgEl.innerHTML = '<span class="error">Error: ' + error.message + '</span>';
+        return;
+      }
+
+      msgEl.innerHTML = '<span class="success">Student add ho gaya! ID: ' + data + '</span>';
+      ['s_name','s_class','s_section','s_dob','s_gender','s_father','s_mother','s_contact','s_address'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      loadStudents();
+      loadDashboard();
+    }
+
+    function escapeHtml(v) {
+      return String(v == null ? '' : v).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
     }
 
     function doLogout() {
