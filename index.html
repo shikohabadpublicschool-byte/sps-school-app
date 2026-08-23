@@ -54,6 +54,13 @@
     .formActions { display: flex; gap: 10px; margin-top: 8px; }
     .btnSecondary { background: #e5e7eb; color: #374151; flex: 1; }
     .btnPrimary { flex: 1; }
+
+    .attRow { display: flex; justify-content: space-between; align-items: center; background: white; padding: 12px 14px; border-radius: 10px; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+    .attRow .name { font-weight: bold; font-size: 14px; }
+    .attToggle { display: flex; gap: 6px; }
+    .attBtn { padding: 6px 12px; border-radius: 6px; font-size: 12px; background: #e5e7eb; color: #4b5563; }
+    .attBtn.presentActive { background: #188038; color: white; }
+    .attBtn.absentActive { background: #d93025; color: white; }
   </style>
 </head>
 <body>
@@ -82,6 +89,10 @@
     <nav>
       <button id="navDashboard" class="active" onclick="switchTab('dashboard')">Dashboard</button>
       <button id="navStudents" onclick="switchTab('students')">Students</button>
+      <button id="navAttendance" onclick="switchTab('attendance')">Attendance</button>
+      <button id="navExams" onclick="switchTab('exams')">Marks</button>
+      <button id="navFees" onclick="switchTab('fees')">Fees</button>
+      <button id="navStaff" onclick="switchTab('staff')" class="hidden">Staff</button>
     </nav>
     <main>
       <!-- Dashboard tab -->
@@ -129,6 +140,82 @@
           <div class="loadingMsg">Loading...</div>
         </div>
       </div>
+
+      <!-- Attendance tab -->
+      <div id="tabAttendance" class="hidden">
+        <div class="sectionTitle">
+          <h2>Attendance</h2>
+        </div>
+        <select id="attClassSelect" onchange="loadAttendanceMarking()" style="margin-bottom:16px;">
+          <option value="">-- Select Class --</option>
+        </select>
+        <div id="attendanceMarkList"></div>
+        <button class="fullBtn hidden" id="saveAttendanceBtn" onclick="saveAttendance()" style="margin-top:12px;">Save Today's Attendance</button>
+        <div id="attendanceMessage" style="margin-top:10px;font-size:13px;"></div>
+      </div>
+
+      <!-- Exams tab -->
+      <div id="tabExams" class="hidden">
+        <div class="sectionTitle"><h2>Marks Entry</h2></div>
+        <div class="formRow" style="margin-bottom:16px;">
+          <select id="examClassSelect" onchange="loadExamStudentList()">
+            <option value="">-- Select Class --</option>
+          </select>
+          <select id="examTypeSelect" onchange="loadExamStudentList()">
+            <option value="">-- Exam --</option>
+            <option value="FA1">FA1</option>
+            <option value="FA2">FA2</option>
+            <option value="SA1">SA1</option>
+            <option value="SA2">SA2</option>
+          </select>
+        </div>
+        <select id="examStudentSelect" onchange="loadExamMarksForm()" class="hidden" style="margin-bottom:16px;">
+          <option value="">-- Select Student --</option>
+        </select>
+        <div id="examMarksForm"></div>
+        <button class="fullBtn hidden" id="saveExamBtn" onclick="saveExamMarks()" style="margin-top:12px;">Save Marks</button>
+        <div id="examMessage" style="margin-top:10px;font-size:13px;"></div>
+      </div>
+
+      <!-- Fees tab -->
+      <div id="tabFees" class="hidden">
+        <div class="sectionTitle"><h2>Fees</h2></div>
+        <select id="feeClassSelect" onchange="loadFeeStudentList()" style="margin-bottom:12px;">
+          <option value="">-- Select Class --</option>
+        </select>
+        <select id="feeStudentSelect" onchange="loadFeeDetail()" class="hidden" style="margin-bottom:16px;">
+          <option value="">-- Select Student --</option>
+        </select>
+        <div id="feeDetail"></div>
+      </div>
+
+      <!-- Staff tab (Admin only) -->
+      <div id="tabStaff" class="hidden">
+        <div class="sectionTitle">
+          <h2>Staff</h2>
+          <button class="fab" onclick="toggleAddStaffForm()">+ Add Staff</button>
+        </div>
+        <div class="formBox hidden" id="addStaffForm">
+          <h3>Add Staff Account</h3>
+          <input id="st_name" placeholder="Full Name">
+          <input id="st_username" placeholder="Username">
+          <input id="st_password" type="password" placeholder="Password">
+          <div class="formRow">
+            <select id="st_role" onchange="toggleStaffClassField()">
+              <option value="Admin">Admin</option>
+              <option value="Admin2">Admin2</option>
+              <option value="Teacher" selected>Teacher</option>
+            </select>
+            <input id="st_class" placeholder="Assigned Class (e.g. 5)">
+          </div>
+          <div class="formActions">
+            <button class="btnSecondary" onclick="toggleAddStaffForm()">Cancel</button>
+            <button class="btnPrimary" id="saveStaffBtn" onclick="saveStaff()">Save</button>
+          </div>
+          <div id="staffFormMessage" style="margin-top:10px;font-size:13px;"></div>
+        </div>
+        <div id="staffList"><div class="loadingMsg">Loading...</div></div>
+      </div>
     </main>
   </div>
 
@@ -172,6 +259,7 @@
       document.getElementById('appScreen').classList.remove('hidden');
       document.getElementById('staffName').innerText = currentUser.staff_name;
       document.getElementById('staffRole').innerText = currentUser.role + ' - ' + currentUser.school_name;
+      if (currentUser.role === 'Admin') document.getElementById('navStaff').classList.remove('hidden');
 
       const { data: sessionData, error: sessionError } = await client
         .from('sessions').select('id, name')
@@ -186,12 +274,341 @@
     }
 
     function switchTab(tab) {
-      document.getElementById('tabDashboard').classList.toggle('hidden', tab !== 'dashboard');
-      document.getElementById('tabStudents').classList.toggle('hidden', tab !== 'students');
-      document.getElementById('navDashboard').classList.toggle('active', tab === 'dashboard');
-      document.getElementById('navStudents').classList.toggle('active', tab === 'students');
+      ['dashboard','students','attendance','exams','fees','staff'].forEach(t => {
+        document.getElementById('tab' + capitalize(t)).classList.toggle('hidden', t !== tab);
+        document.getElementById('nav' + capitalize(t)).classList.toggle('active', t === tab);
+      });
       if (tab === 'dashboard') loadDashboard();
       if (tab === 'students') loadStudents();
+      if (tab === 'attendance') loadAttendanceClassList();
+      if (tab === 'exams') loadExamClassList();
+      if (tab === 'fees') loadFeeClassList();
+      if (tab === 'staff') loadStaff();
+    }
+    function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    async function populateClassDropdown(selectId) {
+      const sel = document.getElementById(selectId);
+      if (sel.options.length > 1) return;
+      const { data } = await client.from('students').select('class')
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId);
+      const classes = [...new Set((data || []).map(s => s.class))].sort();
+      classes.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c; opt.innerText = 'Class ' + c;
+        sel.appendChild(opt);
+      });
+    }
+
+    /* ---------- EXAMS ---------- */
+    const SUBJECTS_BY_CLASS = {
+      '1':['English','Hindi','Math','GK','Art','EVS'], '2':['English','Hindi','Math','GK','Art','EVS'],
+      '3':['English','Hindi','Math','GK','Art','EVS'], '4':['English','Hindi','Math','GK','Art','EVS'],
+      '5':['English','Hindi','Math','GK','Art','EVS','Computer'],
+      '6':['English','Hindi','Math','Science','SST','Computer','GK','Art','Sanskrit'],
+      '7':['English','Hindi','Math','Science','SST','Computer','GK','Art','Sanskrit'],
+      '8':['English','Hindi','Math','Science','SST','Computer','GK','Art','Sanskrit'],
+      '9':['English','Hindi','Math','Science','SST','Computer','Art'],
+      '10':['English','Hindi','Math','Science','SST','Computer','Art']
+    };
+    function subjectsForClass(cls) { return SUBJECTS_BY_CLASS[cls] || SUBJECTS_BY_CLASS['6']; }
+
+    async function loadExamClassList() { await populateClassDropdown('examClassSelect'); }
+
+    async function loadExamStudentList() {
+      const cls = document.getElementById('examClassSelect').value;
+      const examType = document.getElementById('examTypeSelect').value;
+      const sel = document.getElementById('examStudentSelect');
+      document.getElementById('examMarksForm').innerHTML = '';
+      document.getElementById('saveExamBtn').classList.add('hidden');
+      document.getElementById('examMessage').innerHTML = '';
+
+      if (!cls || !examType) { sel.classList.add('hidden'); return; }
+
+      const { data } = await client.from('students').select('id, name')
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId).eq('class', cls);
+
+      sel.innerHTML = '<option value="">-- Select Student --</option>' +
+        (data || []).map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+      sel.classList.remove('hidden');
+    }
+
+    async function loadExamMarksForm() {
+      const studentId = document.getElementById('examStudentSelect').value;
+      const cls = document.getElementById('examClassSelect').value;
+      const examType = document.getElementById('examTypeSelect').value;
+      const formEl = document.getElementById('examMarksForm');
+      const saveBtn = document.getElementById('saveExamBtn');
+
+      if (!studentId) { formEl.innerHTML = ''; saveBtn.classList.add('hidden'); return; }
+
+      const { data: existing } = await client.from('exams').select('subject, marks_obtained, max_marks')
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId)
+        .eq('student_id', studentId).eq('exam_type', examType);
+
+      const existingMap = {};
+      (existing || []).forEach(e => { existingMap[e.subject] = e; });
+      const maxMarks = (examType === 'FA1' || examType === 'FA2') ? 40 : 80;
+
+      const subjects = subjectsForClass(cls);
+      formEl.innerHTML = '<div class="formBox">' + subjects.map(sub => `
+        <div style="margin-bottom:10px;">
+          <label style="font-size:13px;color:#6b7280;">${escapeHtml(sub)} (out of ${existingMap[sub] ? existingMap[sub].max_marks : maxMarks})</label>
+          <input type="number" class="examMarkInput" data-subject="${escapeHtml(sub)}" data-max="${existingMap[sub] ? existingMap[sub].max_marks : maxMarks}" value="${existingMap[sub] ? existingMap[sub].marks_obtained : ''}">
+        </div>
+      `).join('') + '</div>';
+      saveBtn.classList.remove('hidden');
+    }
+
+    async function saveExamMarks() {
+      const studentId = document.getElementById('examStudentSelect').value;
+      const cls = document.getElementById('examClassSelect').value;
+      const examType = document.getElementById('examTypeSelect').value;
+      const msgEl = document.getElementById('examMessage');
+      const btn = document.getElementById('saveExamBtn');
+
+      const inputs = document.querySelectorAll('.examMarkInput');
+      const records = [];
+      for (const inp of inputs) {
+        if (inp.value === '') continue;
+        const max = Number(inp.dataset.max);
+        const val = Number(inp.value);
+        if (val < 0 || val > max) {
+          msgEl.innerHTML = '<span class="error">' + inp.dataset.subject + ': 0-' + max + ' ke beech hona chahiye</span>';
+          return;
+        }
+        records.push({
+          school_id: currentUser.school_id, session_id: currentSessionId, student_id: studentId,
+          exam_type: examType, subject: inp.dataset.subject, marks_obtained: val, max_marks: max,
+          entered_by: currentUser.staff_name, date: new Date().toISOString().slice(0,10)
+        });
+      }
+      if (records.length === 0) { msgEl.innerHTML = '<span class="error">Kam se kam ek subject ke marks bharo</span>'; return; }
+
+      btn.disabled = true; btn.innerText = 'Saving...';
+      const { error } = await client.from('exams').upsert(records, { onConflict: 'student_id,exam_type,subject' });
+      btn.disabled = false; btn.innerText = 'Save Marks';
+
+      if (error) { msgEl.innerHTML = '<span class="error">Error: ' + error.message + '</span>'; return; }
+      msgEl.innerHTML = '<span class="success">Marks save ho gaye!</span>';
+    }
+
+    /* ---------- FEES ---------- */
+    async function loadFeeClassList() { await populateClassDropdown('feeClassSelect'); }
+
+    async function loadFeeStudentList() {
+      const cls = document.getElementById('feeClassSelect').value;
+      const sel = document.getElementById('feeStudentSelect');
+      document.getElementById('feeDetail').innerHTML = '';
+      if (!cls) { sel.classList.add('hidden'); return; }
+
+      const { data } = await client.from('students').select('id, name')
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId).eq('class', cls);
+
+      sel.innerHTML = '<option value="">-- Select Student --</option>' +
+        (data || []).map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+      sel.classList.remove('hidden');
+    }
+
+    async function loadFeeDetail() {
+      const studentId = document.getElementById('feeStudentSelect').value;
+      const detailEl = document.getElementById('feeDetail');
+      if (!studentId) { detailEl.innerHTML = ''; return; }
+      detailEl.innerHTML = '<div class="loadingMsg">Loading...</div>';
+
+      const { data: fs } = await client.from('fee_structure').select('*')
+        .eq('student_id', studentId).eq('session_id', currentSessionId).maybeSingle();
+      const { data: payments } = await client.from('fee_payments').select('*')
+        .eq('student_id', studentId).eq('session_id', currentSessionId).order('paid_date', { ascending: false });
+
+      const base = fs ? Number(fs.base_fee) : 0;
+      const discount = fs ? Number(fs.discount) : 0;
+      const van = fs ? Number(fs.van_fee) : 0;
+      const totalDue = base - discount + van;
+      const totalPaid = (payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+      const remaining = totalDue - totalPaid;
+
+      detailEl.innerHTML = `
+        <div class="formBox">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Base Fee</span><b>₹${base}</b></div>
+          ${discount > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:6px;color:#d93025;"><span>Discount</span><b>-₹${discount}</b></div>` : ''}
+          ${van > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Van Fee</span><b>₹${van}</b></div>` : ''}
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Total Paid</span><b style="color:#188038;">₹${totalPaid}</b></div>
+          <div style="display:flex;justify-content:space-between;font-size:16px;border-top:1px solid #e5e7eb;padding-top:8px;margin-top:4px;"><span>Remaining Due</span><b style="color:${remaining>0?'#d93025':'#188038'};">₹${remaining}</b></div>
+        </div>
+        <div class="formBox">
+          <h3>Record a Payment</h3>
+          <input id="fee_month" placeholder="Month (e.g. August 2026)">
+          <input id="fee_amount" type="number" placeholder="Amount (₹)">
+          <button class="fullBtn" id="savePaymentBtn" onclick="savePayment('${studentId}')">Save Payment</button>
+          <div id="paymentMessage" style="margin-top:10px;font-size:13px;"></div>
+        </div>
+        <h3 style="margin:16px 0 8px;">Payment History</h3>
+        ${(payments||[]).length === 0 ? '<div class="loadingMsg">Koi payment abhi tak nahi hui</div>' :
+          payments.map(p => `<div class="studentCard"><b>₹${p.amount}</b><div class="meta">${escapeHtml(p.month||'-')} &middot; ${p.paid_date}</div></div>`).join('')}
+      `;
+    }
+
+    async function savePayment(studentId) {
+      const month = document.getElementById('fee_month').value.trim();
+      const amount = Number(document.getElementById('fee_amount').value);
+      const msgEl = document.getElementById('paymentMessage');
+      const btn = document.getElementById('savePaymentBtn');
+      if (!amount || amount <= 0) { msgEl.innerHTML = '<span class="error">Amount daalo</span>'; return; }
+
+      btn.disabled = true; btn.innerText = 'Saving...';
+      const { error } = await client.from('fee_payments').insert({
+        school_id: currentUser.school_id, session_id: currentSessionId, student_id: studentId,
+        month: month, amount: amount, paid_date: new Date().toISOString().slice(0,10),
+        receipt_no: 'RCPT' + Date.now()
+      });
+      btn.disabled = false; btn.innerText = 'Save Payment';
+
+      if (error) { msgEl.innerHTML = '<span class="error">Error: ' + error.message + '</span>'; return; }
+      msgEl.innerHTML = '<span class="success">Payment save ho gaya!</span>';
+      loadFeeDetail();
+      loadDashboard();
+    }
+
+    /* ---------- STAFF (Admin only) ---------- */
+    async function loadStaff() {
+      const listEl = document.getElementById('staffList');
+      listEl.innerHTML = '<div class="loadingMsg">Loading...</div>';
+      const { data, error } = await client.from('staff').select('id, name, username, role, assigned_class')
+        .eq('school_id', currentUser.school_id).order('name');
+      if (error) { listEl.innerHTML = '<div class="loadingMsg">Error: ' + error.message + '</div>'; return; }
+      listEl.innerHTML = (data||[]).map(s => `
+        <div class="studentCard">
+          <b>${escapeHtml(s.name)}</b>
+          <div class="meta">${escapeHtml(s.username)} &middot; ${escapeHtml(s.role)}${s.assigned_class ? ' &middot; Class ' + escapeHtml(s.assigned_class) : ''}</div>
+        </div>
+      `).join('');
+    }
+
+    function toggleAddStaffForm() {
+      document.getElementById('addStaffForm').classList.toggle('hidden');
+      document.getElementById('staffFormMessage').innerHTML = '';
+    }
+    function toggleStaffClassField() {
+      const role = document.getElementById('st_role').value;
+      document.getElementById('st_class').value = (role === 'Admin' || role === 'Admin2') ? '' : '';
+    }
+
+    async function saveStaff() {
+      const name = document.getElementById('st_name').value.trim();
+      const username = document.getElementById('st_username').value.trim();
+      const password = document.getElementById('st_password').value;
+      const role = document.getElementById('st_role').value;
+      const assignedClass = document.getElementById('st_class').value.trim();
+      const msgEl = document.getElementById('staffFormMessage');
+      const btn = document.getElementById('saveStaffBtn');
+
+      if (!name || !username || !password) { msgEl.innerHTML = '<span class="error">Sab fields bharo</span>'; return; }
+      if (role === 'Teacher' && !assignedClass) { msgEl.innerHTML = '<span class="error">Teacher ke liye Class zaroori hai</span>'; return; }
+
+      btn.disabled = true; btn.innerText = 'Saving...';
+      const { error } = await client.rpc('add_staff', {
+        p_school_id: currentUser.school_id, p_name: name, p_username: username,
+        p_password: password, p_role: role, p_assigned_class: role === 'Teacher' ? assignedClass : 'ALL'
+      });
+      btn.disabled = false; btn.innerText = 'Save';
+
+      if (error) { msgEl.innerHTML = '<span class="error">Error: ' + error.message + '</span>'; return; }
+      msgEl.innerHTML = '<span class="success">Staff add ho gaya!</span>';
+      ['st_name','st_username','st_password','st_class'].forEach(id => document.getElementById(id).value = '');
+      loadStaff();
+    }
+
+    async function loadAttendanceClassList() {
+      const sel = document.getElementById('attClassSelect');
+      if (sel.options.length > 1) return; // already loaded once
+      const { data } = await client.from('students').select('class')
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId);
+      const classes = [...new Set((data || []).map(s => s.class))].sort();
+      classes.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c; opt.innerText = 'Class ' + c;
+        sel.appendChild(opt);
+      });
+    }
+
+    let attendanceStudents = [];
+
+    async function loadAttendanceMarking() {
+      const cls = document.getElementById('attClassSelect').value;
+      const listEl = document.getElementById('attendanceMarkList');
+      const saveBtn = document.getElementById('saveAttendanceBtn');
+      document.getElementById('attendanceMessage').innerHTML = '';
+
+      if (!cls) { listEl.innerHTML = ''; saveBtn.classList.add('hidden'); return; }
+      listEl.innerHTML = '<div class="loadingMsg">Loading...</div>';
+
+      const { data: students } = await client.from('students').select('id, name')
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId).eq('class', cls);
+
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: existing } = await client.from('attendance').select('student_id, status')
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId).eq('date', today);
+
+      const existingMap = {};
+      (existing || []).forEach(e => { existingMap[e.student_id] = e.status; });
+
+      attendanceStudents = (students || []).map(s => ({ id: s.id, name: s.name, status: existingMap[s.id] || 'Present' }));
+
+      if (attendanceStudents.length === 0) {
+        listEl.innerHTML = '<div class="loadingMsg">Is class mein koi student nahi hai</div>';
+        saveBtn.classList.add('hidden');
+        return;
+      }
+
+      renderAttendanceList();
+      saveBtn.classList.remove('hidden');
+    }
+
+    function renderAttendanceList() {
+      const listEl = document.getElementById('attendanceMarkList');
+      listEl.innerHTML = attendanceStudents.map((s, i) => `
+        <div class="attRow">
+          <span class="name">${escapeHtml(s.name)}</span>
+          <div class="attToggle">
+            <button class="attBtn ${s.status === 'Present' ? 'presentActive' : ''}" onclick="setAttStatus(${i}, 'Present')">Present</button>
+            <button class="attBtn ${s.status === 'Absent' ? 'absentActive' : ''}" onclick="setAttStatus(${i}, 'Absent')">Absent</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function setAttStatus(index, status) {
+      attendanceStudents[index].status = status;
+      renderAttendanceList();
+    }
+
+    async function saveAttendance() {
+      const btn = document.getElementById('saveAttendanceBtn');
+      const msgEl = document.getElementById('attendanceMessage');
+      const today = new Date().toISOString().slice(0, 10);
+
+      btn.disabled = true;
+      btn.innerText = 'Saving...';
+
+      const records = attendanceStudents.map(s => ({
+        school_id: currentUser.school_id,
+        session_id: currentSessionId,
+        student_id: s.id,
+        date: today,
+        status: s.status,
+        marked_by: currentUser.staff_name,
+        updated_at: new Date().toISOString()
+      }));
+
+      const { error } = await client.from('attendance').upsert(records, { onConflict: 'student_id,date' });
+
+      btn.disabled = false;
+      btn.innerText = "Save Today's Attendance";
+
+      if (error) { msgEl.innerHTML = '<span class="error">Error: ' + error.message + '</span>'; return; }
+      msgEl.innerHTML = '<span class="success">' + records.length + " students ki attendance save ho gayi!</span>";
+      loadDashboard();
     }
 
     async function loadDashboard() {
