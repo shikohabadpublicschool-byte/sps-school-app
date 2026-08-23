@@ -6,6 +6,7 @@
   <title>SPS School Management</title>
   <style>
     * { box-sizing: border-box; }
+    html, body { overflow-x: hidden; }
     body { font-family: Arial, sans-serif; margin: 0; background: #f5f7fb; color: #1f2937; }
     .hidden { display: none !important; }
 
@@ -24,12 +25,13 @@
 
     /* App screen */
     #appScreen { max-width: 700px; margin: 0 auto; padding-bottom: 30px; }
-    header { background: #1a73e8; color: white; padding: 16px; display: flex; justify-content: space-between; align-items: center; }
+    header { background: #1a73e8; color: white; padding: 16px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+    header .who { min-width: 0; }
     header .who b { display: block; font-size: 16px; }
-    header .who span { font-size: 12px; opacity: 0.85; }
+    header .who span { font-size: 12px; opacity: 0.85; word-break: break-word; }
     header button { background: rgba(255,255,255,0.2); color: white; padding: 8px 14px; border-radius: 8px; font-size: 13px; }
-    nav { display: flex; gap: 8px; padding: 10px 16px; background: white; border-bottom: 1px solid #e5e7eb; }
-    nav button { flex: 1; background: #f5f7fb; color: #4b5563; padding: 10px; border-radius: 8px; font-weight: bold; }
+    nav { display: flex; gap: 8px; padding: 10px 16px; background: white; border-bottom: 1px solid #e5e7eb; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    nav button { flex: 0 0 auto; white-space: nowrap; background: #f5f7fb; color: #4b5563; padding: 10px 14px; border-radius: 8px; font-weight: bold; font-size: 13px; }
     nav button.active { background: #e8f0fe; color: #1a73e8; }
     main { padding: 16px; }
 
