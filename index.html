@@ -70,15 +70,38 @@
       #printFrame, #printFrame * { visibility: visible; }
       #printFrame { display: block; position: absolute; top: 0; left: 0; width: 100%; }
     }
-    .rcHeader { text-align: center; border-bottom: 2px solid #1a73e8; padding-bottom: 10px; margin-bottom: 14px; }
-    .rcHeader h2 { margin: 4px 0; color: #1a73e8; }
-    .rcTable { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 12px; }
-    .rcTable th, .rcTable td { border: 1px solid #ccc; padding: 6px; text-align: center; }
-    .rcTable th { background: #f0f4ff; }
     .sessionCard { display: flex; justify-content: space-between; align-items: center; background: white; padding: 12px 14px; border-radius: 10px; margin-bottom: 8px; }
     .badge { font-size: 11px; padding: 3px 8px; border-radius: 6px; font-weight: bold; }
     .badgeActive { background: #eaf5ee; color: #188038; }
     .badgeLocked { background: #f1f3f4; color: #5f6368; }
+
+    /* Decorated Report Card / Mark List (matches the school's printed format) */
+    .rcFrame { border: 3px double #14213d; padding: 10px 14px; font-family: 'Georgia', 'Times New Roman', serif; }
+    .rcHeader { display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #d4af37; padding-bottom: 6px; margin-bottom: 4px; }
+    .rcLogo { width: 48px; height: auto; flex-shrink: 0; }
+    .rcHeaderText { flex: 1; }
+    .rcSchoolName { font-size: 17px; font-weight: bold; color: #14213d; letter-spacing: 0.5px; }
+    .rcAegis { font-size: 10px; font-style: italic; color: #555; margin-top: 1px; }
+    .rcAddress { font-size: 9px; color: #444; margin-top: 2px; line-height: 1.25; }
+    .rcPhone { font-size: 9px; color: #444; }
+    .rcTitle { text-align: center; font-size: 13px; font-weight: bold; letter-spacing: 1.2px; background: #14213d; color: #fff; padding: 3px; margin: 6px 0; }
+    .rcInfoTable { width: 100%; margin-bottom: 6px; border-collapse: collapse; }
+    .rcInfoTable td { border: 1px solid #ccc; padding: 3px 7px; font-size: 11px; }
+    .rcSectionTitle { font-size: 12px; font-weight: bold; color: #fff; background: #d4af37; padding: 3px 7px; margin-top: 7px; margin-bottom: 3px; }
+    .rcMarksTable { width: 100%; border-collapse: collapse; }
+    .rcMarksTable th { background: #eef1f8; border: 1px solid #999; padding: 3px; font-size: 10px; }
+    .rcMarksTable td { border: 1px solid #999; padding: 3px; font-size: 10px; text-align: center; }
+    .rcMarksTable td:first-child { text-align: left; font-weight: 600; }
+    .rcGrandTotal { background: #f4e9c9; font-weight: bold; }
+    .rcOverall { text-align: center; margin-top: 7px; font-size: 12px; background: #f8f5ea; padding: 4px; border: 1px solid #d4af37; }
+    .rcRemarkBox { border: 1px solid #14213d; border-left: 4px solid #14213d; padding: 6px 9px; margin-top: 8px; background: #fafbfd; }
+    .rcRemarkTitle { font-size: 10px; font-weight: bold; color: #14213d; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+    .rcRemarkText { font-size: 11px; line-height: 1.3; color: #222; font-style: italic; }
+    .rcSignRow { display: flex; justify-content: space-between; margin-top: 20px; font-size: 10px; text-align: center; }
+    .markListTable { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+    .markListTable th { background: #eef1f8; border: 1px solid #999; padding: 3px; font-size: 10px; }
+    .markListTable td { border: 1px solid #999; padding: 3px; font-size: 10px; text-align: center; }
+    .markListTable td:first-child { text-align: left; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -86,7 +109,8 @@
   <!-- LOGIN SCREEN -->
   <div id="loginScreen">
     <div class="card">
-      <h1>🏫 SPS School Management</h1>
+      <img src="https://lh3.googleusercontent.com/d/1rG7fh30csup2Tbb2Qbs0RRi1ZOZcOf5i" style="width:80px;height:auto;margin-bottom:8px;">
+      <h1>SPS School Management</h1>
       <p>Apna username aur password daalo</p>
       <input id="username" placeholder="Username" autocomplete="username">
       <input id="password" type="password" placeholder="Password" autocomplete="current-password">
@@ -286,6 +310,7 @@
   <script>
     const SUPABASE_URL = "https://qrucqcgsdbayhqdfhwau.supabase.co";
     const SUPABASE_KEY = "sb_publishable_SAEI4DqB41pWQxeAHAQIJg_Oz_Iat_Q";
+    const SCHOOL_LOGO = "https://lh3.googleusercontent.com/d/1rG7fh30csup2Tbb2Qbs0RRi1ZOZcOf5i";
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let currentUser = null;
@@ -1180,6 +1205,26 @@
       if (pct >= 51) return 'C1'; if (pct >= 41) return 'C2'; if (pct >= 33) return 'D'; if (pct >= 21) return 'E1'; return 'E2';
     }
     function baseSubject(key) { return key.endsWith('__NB') || key.endsWith('__CS') ? key.slice(0, -4) : key; }
+    function parseSubjectKey(key) {
+      if (key.endsWith('__NB')) return { subject: key.slice(0, -4), label: 'Notebook' };
+      if (key.endsWith('__CS')) return { subject: key.slice(0, -4), label: 'Co-Scholastic' };
+      return { subject: key, label: 'Exam' };
+    }
+    function remarkFor(name, grade) {
+      const n = escapeHtml(name);
+      const remarks = {
+        A1: `An outstanding performance! ${n} has displayed exceptional dedication, understanding, and consistency across all subjects this term. Keep up this remarkable standard of excellence.`,
+        A2: `A very good performance! ${n} shows a strong grasp of concepts and consistent effort. With continued focus, ${n} can reach the very top.`,
+        B1: `A good performance overall. ${n} has done well this term. With a little more focused effort, even better results are well within reach.`,
+        B2: `A satisfactory performance. ${n} shows real potential and should now work on strengthening the weaker areas to improve further.`,
+        C1: `An average performance this term. ${n} is encouraged to put in more consistent daily effort to improve academic outcomes.`,
+        C2: `${n} needs to work harder and seek extra help where needed to strengthen understanding of core concepts.`,
+        D: `${n} is finding the current syllabus challenging and requires focused attention, regular practice, and additional support at home.`,
+        E1: `${n} needs significant improvement. Immediate remedial support and closer monitoring are strongly recommended.`,
+        E2: `${n} needs significant improvement. Immediate remedial support and closer monitoring are strongly recommended.`
+      };
+      return remarks[grade] || `${n}'s performance has been recorded for this term.`;
+    }
 
     async function printReportCard() {
       const studentId = document.getElementById('examStudentSelect').value;
@@ -1188,37 +1233,94 @@
       const { data: student } = await client.from('students').select('*').eq('id', studentId).maybeSingle();
       const { data: records } = await client.from('exams').select('*').eq('student_id', studentId).eq('session_id', currentSessionId);
 
-      const bySubject = {};
+      const examCols = ['FA1', 'FA2', 'SA1', 'SA2'];
+      const scholPivot = {}, scholOrder = [];
+      const csPivot = {}, csOrder = [];
+
       (records || []).forEach(r => {
-        const subj = baseSubject(r.subject);
-        if (!bySubject[subj]) bySubject[subj] = { exam: 0, nb: 0, cs: 0, max: 0 };
-        if (r.subject.endsWith('__NB')) { bySubject[subj].nb += Number(r.marks_obtained); bySubject[subj].max += Number(r.max_marks); }
-        else if (r.subject.endsWith('__CS')) { bySubject[subj].cs += Number(r.marks_obtained); bySubject[subj].max += Number(r.max_marks); }
-        else { bySubject[subj].exam += Number(r.marks_obtained); bySubject[subj].max += Number(r.max_marks); }
+        const parsed = parseSubjectKey(r.subject);
+        const obt = Number(r.marks_obtained) || 0, max = Number(r.max_marks) || 0;
+        if (parsed.label === 'Co-Scholastic') {
+          if (!csPivot[parsed.subject]) { csPivot[parsed.subject] = {}; csOrder.push(parsed.subject); }
+          csPivot[parsed.subject][r.exam_type] = { obtained: obt, max: max };
+        } else {
+          if (!scholPivot[parsed.subject]) { scholPivot[parsed.subject] = {}; scholOrder.push(parsed.subject); }
+          if (!scholPivot[parsed.subject][r.exam_type]) scholPivot[parsed.subject][r.exam_type] = { obtained: 0, max: 0 };
+          scholPivot[parsed.subject][r.exam_type].obtained += obt;
+          scholPivot[parsed.subject][r.exam_type].max += max;
+        }
       });
 
       let grandObt = 0, grandMax = 0;
-      const rows = Object.keys(bySubject).map(subj => {
-        const s = bySubject[subj];
-        const total = s.exam + s.nb + s.cs;
-        grandObt += total; grandMax += s.max;
-        const pct = s.max > 0 ? (total / s.max * 100) : 0;
-        return `<tr><td style="text-align:left;">${escapeHtml(subj)}</td><td>${s.exam}</td><td>${s.nb}</td><td>${s.cs}</td><td>${total}/${s.max}</td><td>${gradeFor(pct)}</td></tr>`;
+      const scholRows = scholOrder.map(subject => {
+        let rowObt = 0, rowMax = 0;
+        const cells = examCols.map(ex => {
+          const cell = scholPivot[subject][ex];
+          if (!cell || cell.max === 0) return '<td>-</td>';
+          rowObt += cell.obtained; rowMax += cell.max;
+          return `<td>${cell.obtained}/${cell.max}</td>`;
+        }).join('');
+        grandObt += rowObt; grandMax += rowMax;
+        const pct = rowMax > 0 ? (rowObt / rowMax * 100) : 0;
+        const grade = rowMax > 0 ? gradeFor(pct) : '-';
+        return `<tr><td>${escapeHtml(subject)}</td>${cells}<td>${rowObt}/${rowMax}</td><td>${grade}</td></tr>`;
+      }).join('');
+
+      const csRows = csOrder.map(subject => {
+        let rowObt = 0, rowMax = 0;
+        const cells = examCols.map(ex => {
+          const cell = csPivot[subject][ex];
+          if (!cell || cell.max === 0) return '<td>-</td>';
+          rowObt += cell.obtained; rowMax += cell.max;
+          return `<td>${cell.obtained}/${cell.max}</td>`;
+        }).join('');
+        const pct = rowMax > 0 ? (rowObt / rowMax * 100) : 0;
+        const grade = rowMax > 0 ? gradeFor(pct) : '-';
+        return `<tr><td>${escapeHtml(subject)}</td>${cells}<td>${rowObt}/${rowMax}</td><td>${grade}</td></tr>`;
       }).join('');
 
       const overallPct = grandMax > 0 ? (grandObt / grandMax * 100) : 0;
+      const overallGrade = grandMax > 0 ? gradeFor(overallPct) : '-';
+      const remark = grandMax > 0 ? remarkFor(student.name, overallGrade) : 'No assessment data recorded yet for this term.';
 
       document.getElementById('printFrame').innerHTML = `
-        <div class="rcHeader">
-          <h2>🏫 ${escapeHtml(currentUser.school_name)}</h2>
-          <div>Report Card — Session ${escapeHtml(String(currentSessionId).slice(0,8))}</div>
+        <div class="rcFrame">
+          <div class="rcHeader">
+            <img src="${SCHOOL_LOGO}" class="rcLogo">
+            <div class="rcHeaderText">
+              <div class="rcSchoolName">${escapeHtml(currentUser.school_name)}</div>
+              <div class="rcAegis">Under the aegis of Satyapath Seva Sansthan</div>
+              <div class="rcAddress">National Highway NH2, Agra Road, Near Chaumukhi Mahadev Temple,<br>Shikohabad, District Firozabad, Uttar Pradesh</div>
+              <div class="rcPhone">Phone: 056-76-355870</div>
+            </div>
+          </div>
+          <div class="rcTitle">PROGRESS REPORT CARD</div>
+          <table class="rcInfoTable">
+            <tr><td><b>Student Name</b></td><td>${escapeHtml(student.name)}</td><td><b>Student ID</b></td><td>${escapeHtml(student.student_code)}</td></tr>
+            <tr><td><b>Class</b></td><td>${escapeHtml(student.class)}${student.section ? '-' + escapeHtml(student.section) : ''}</td><td><b>Father's Name</b></td><td>${escapeHtml(student.father_name || '-')}</td></tr>
+          </table>
+          <div class="rcSectionTitle">Part A — Scholastic Area</div>
+          <table class="rcMarksTable">
+            <tr><th>Subject</th><th>FA1</th><th>FA2</th><th>SA1</th><th>SA2</th><th>Total</th><th>Grade</th></tr>
+            ${scholRows || '<tr><td colspan="7">No records yet</td></tr>'}
+            <tr class="rcGrandTotal"><td>Grand Total</td><td colspan="4"></td><td>${grandObt}/${grandMax}</td><td>${overallGrade}</td></tr>
+          </table>
+          <div class="rcSectionTitle">Part B — Co-Scholastic Area</div>
+          <table class="rcMarksTable">
+            <tr><th>Subject</th><th>FA1</th><th>FA2</th><th>SA1</th><th>SA2</th><th>Total</th><th>Grade</th></tr>
+            ${csRows || '<tr><td colspan="7">No records yet</td></tr>'}
+          </table>
+          <div class="rcOverall">Overall Percentage: <b>${overallPct.toFixed(1)}%</b> &nbsp;|&nbsp; Overall Grade: <b>${overallGrade}</b></div>
+          <div class="rcRemarkBox">
+            <div class="rcRemarkTitle">Class Teacher's Remark</div>
+            <div class="rcRemarkText">${remark}</div>
+          </div>
+          <div class="rcSignRow">
+            <div>_______________________<br>Class Teacher</div>
+            <div>_______________________<br>Parent/Guardian</div>
+            <div>_______________________<br>Principal</div>
+          </div>
         </div>
-        <p><b>Name:</b> ${escapeHtml(student.name)} &nbsp; <b>Class:</b> ${escapeHtml(student.class)}${student.section ? '-' + escapeHtml(student.section) : ''} &nbsp; <b>ID:</b> ${escapeHtml(student.student_code)}</p>
-        <table class="rcTable">
-          <tr><th>Subject</th><th>Exam</th><th>Notebook</th><th>Co-Scholastic</th><th>Total</th><th>Grade</th></tr>
-          ${rows}
-        </table>
-        <p><b>Overall:</b> ${grandObt}/${grandMax} (${overallPct.toFixed(1)}%) &nbsp; <b>Grade:</b> ${gradeFor(overallPct)}</p>
       `;
       window.print();
     }
@@ -1233,30 +1335,81 @@
         .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId)
         .in('student_id', (students || []).map(s => s.id));
 
+      // One compact table PER EXAM (Student x Subjects), same as the original design.
+      const examTypes = ['FA1', 'FA2', 'SA1', 'SA2'].filter(et => (records || []).some(r => r.exam_type === et));
+      const subjects = [];
+      const seenSubj = {};
+      (records || []).forEach(r => {
+        const subj = baseSubject(r.subject);
+        if (!seenSubj[subj]) { seenSubj[subj] = true; subjects.push(subj); }
+      });
+
       const totals = {};
       (records || []).forEach(r => {
-        if (!totals[r.student_id]) totals[r.student_id] = { obt: 0, max: 0 };
-        totals[r.student_id].obt += Number(r.marks_obtained);
-        totals[r.student_id].max += Number(r.max_marks);
+        const subj = baseSubject(r.subject);
+        if (!totals[r.student_id]) totals[r.student_id] = {};
+        if (!totals[r.student_id][r.exam_type]) totals[r.student_id][r.exam_type] = {};
+        if (!totals[r.student_id][r.exam_type][subj]) totals[r.student_id][r.exam_type][subj] = { obtained: 0, max: 0 };
+        totals[r.student_id][r.exam_type][subj].obtained += Number(r.marks_obtained) || 0;
+        totals[r.student_id][r.exam_type][subj].max += Number(r.max_marks) || 0;
       });
 
       const rows = (students || []).map(s => {
-        const t = totals[s.id] || { obt: 0, max: 0 };
-        const pct = t.max > 0 ? (t.obt / t.max * 100) : 0;
-        return { name: s.name, obt: t.obt, max: t.max, pct };
-      }).sort((a, b) => b.pct - a.pct);
+        const t = totals[s.id] || {};
+        let grandObt = 0, grandMax = 0;
+        const examGroups = examTypes.map(et => {
+          const bySubj = t[et] || {};
+          return subjects.map(subj => {
+            const cell = bySubj[subj];
+            if (cell && cell.max > 0) { grandObt += cell.obtained; grandMax += cell.max; return cell; }
+            return null;
+          });
+        });
+        const pct = grandMax > 0 ? (grandObt / grandMax * 100) : 0;
+        return { name: s.name, examGroups, grandObt, grandMax, pct };
+      });
 
-      const rowsHtml = rows.map((r, i) => `<tr><td>${i+1}</td><td style="text-align:left;">${escapeHtml(r.name)}</td><td>${r.obt}/${r.max}</td><td>${r.pct.toFixed(1)}%</td></tr>`).join('');
+      const ranked = rows.filter(r => r.grandMax > 0).slice().sort((a, b) => b.pct - a.pct);
+      const rankMap = {};
+      ranked.forEach((r, i) => { rankMap[r.name] = (i > 0 && r.pct === ranked[i-1].pct) ? rankMap[ranked[i-1].name] : (i + 1); });
+
+      const examTables = examTypes.map((et, examIdx) => {
+        const headerCells = subjects.map(s => `<th>${escapeHtml(s)}</th>`).join('');
+        const bodyRows = rows.map(r => {
+          const cells = subjects.map((s, si) => {
+            const cell = r.examGroups[examIdx][si];
+            return cell ? `<td>${cell.obtained}/${cell.max}</td>` : '<td>-</td>';
+          }).join('');
+          return `<tr><td>${escapeHtml(r.name)}</td>${cells}</tr>`;
+        }).join('');
+        return `<div class="rcSectionTitle" style="margin-top:10px;">${escapeHtml(et)}</div>
+          <table class="markListTable"><tr><th style="text-align:left;">Student</th>${headerCells}</tr>${bodyRows}</table>`;
+      }).join('');
+
+      const summaryRows = rows.map(r => {
+        const pctStr = r.grandMax > 0 ? r.pct.toFixed(1) + '%' : '-';
+        return `<tr><td>${escapeHtml(r.name)}</td><td>${r.grandObt}/${r.grandMax}</td><td>${pctStr}</td><td>${rankMap[r.name] || '-'}</td></tr>`;
+      }).join('');
 
       document.getElementById('printFrame').innerHTML = `
-        <div class="rcHeader">
-          <h2>🏫 ${escapeHtml(currentUser.school_name)}</h2>
-          <div>Consolidated Mark List — Class ${escapeHtml(cls)}</div>
+        <div class="rcFrame">
+          <div class="rcHeader">
+            <img src="${SCHOOL_LOGO}" class="rcLogo">
+            <div class="rcHeaderText">
+              <div class="rcSchoolName">${escapeHtml(currentUser.school_name)}</div>
+              <div class="rcAegis">Under the aegis of Satyapath Seva Sansthan</div>
+              <div class="rcAddress">National Highway NH2, Agra Road, Near Chaumukhi Mahadev Temple,<br>Shikohabad, District Firozabad, Uttar Pradesh</div>
+              <div class="rcPhone">Phone: 056-76-355870</div>
+            </div>
+          </div>
+          <div class="rcTitle">CONSOLIDATED MARK LIST — CLASS ${escapeHtml(cls)}</div>
+          ${examTables || '<div style="text-align:center;padding:20px;">Is class ke liye abhi koi marks entered nahi hain.</div>'}
+          <div class="rcSectionTitle" style="margin-top:10px;">Overall Summary</div>
+          <table class="markListTable">
+            <tr><th style="text-align:left;">Student</th><th>Grand Total</th><th>%</th><th>Rank</th></tr>
+            ${summaryRows}
+          </table>
         </div>
-        <table class="rcTable">
-          <tr><th>Rank</th><th>Name</th><th>Marks</th><th>%</th></tr>
-          ${rowsHtml}
-        </table>
       `;
       window.print();
     }
