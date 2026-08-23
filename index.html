@@ -24,15 +24,15 @@
     .success { color: #188038; }
 
     /* App screen */
-    #appScreen { max-width: 700px; margin: 0 auto; padding-bottom: 30px; }
+    #appScreen { max-width: 700px; margin: 0 auto; padding-bottom: 70px; }
     header { background: #1a73e8; color: white; padding: 16px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
     header .who { min-width: 0; }
     header .who b { display: block; font-size: 16px; }
     header .who span { font-size: 12px; opacity: 0.85; word-break: break-word; }
     header button { background: rgba(255,255,255,0.2); color: white; padding: 8px 14px; border-radius: 8px; font-size: 13px; }
-    nav { display: flex; gap: 8px; padding: 10px 16px; background: white; border-bottom: 1px solid #e5e7eb; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    nav button { flex: 0 0 auto; white-space: nowrap; background: #f5f7fb; color: #4b5563; padding: 10px 14px; border-radius: 8px; font-weight: bold; font-size: 13px; }
-    nav button.active { background: #e8f0fe; color: #1a73e8; }
+    nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: white; box-shadow: 0 -2px 8px rgba(0,0,0,0.1); z-index: 20; overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 700px; margin: 0 auto; }
+    nav button { flex: 1; min-width: 64px; background: none; color: #888; padding: 9px 2px; font-size: 10px; border-radius: 0; font-weight: normal; line-height: 1.6; }
+    nav button.active { color: #1a73e8; font-weight: 700; }
     main { padding: 16px; }
 
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -63,6 +63,22 @@
     .attBtn { padding: 6px 12px; border-radius: 6px; font-size: 12px; background: #e5e7eb; color: #4b5563; }
     .attBtn.presentActive { background: #188038; color: white; }
     .attBtn.absentActive { background: #d93025; color: white; }
+
+    .printFrame { display: none; }
+    @media print {
+      body * { visibility: hidden; }
+      #printFrame, #printFrame * { visibility: visible; }
+      #printFrame { display: block; position: absolute; top: 0; left: 0; width: 100%; }
+    }
+    .rcHeader { text-align: center; border-bottom: 2px solid #1a73e8; padding-bottom: 10px; margin-bottom: 14px; }
+    .rcHeader h2 { margin: 4px 0; color: #1a73e8; }
+    .rcTable { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 12px; }
+    .rcTable th, .rcTable td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+    .rcTable th { background: #f0f4ff; }
+    .sessionCard { display: flex; justify-content: space-between; align-items: center; background: white; padding: 12px 14px; border-radius: 10px; margin-bottom: 8px; }
+    .badge { font-size: 11px; padding: 3px 8px; border-radius: 6px; font-weight: bold; }
+    .badgeActive { background: #eaf5ee; color: #188038; }
+    .badgeLocked { background: #f1f3f4; color: #5f6368; }
   </style>
 </head>
 <body>
@@ -70,7 +86,7 @@
   <!-- LOGIN SCREEN -->
   <div id="loginScreen">
     <div class="card">
-      <h1>SPS School Management</h1>
+      <h1>🏫 SPS School Management</h1>
       <p>Apna username aur password daalo</p>
       <input id="username" placeholder="Username" autocomplete="username">
       <input id="password" type="password" placeholder="Password" autocomplete="current-password">
@@ -89,12 +105,12 @@
       <button onclick="doLogout()">Logout</button>
     </header>
     <nav>
-      <button id="navDashboard" class="active" onclick="switchTab('dashboard')">Dashboard</button>
-      <button id="navStudents" onclick="switchTab('students')">Students</button>
-      <button id="navAttendance" onclick="switchTab('attendance')">Attendance</button>
-      <button id="navExams" onclick="switchTab('exams')">Marks</button>
-      <button id="navFees" onclick="switchTab('fees')">Fees</button>
-      <button id="navStaff" onclick="switchTab('staff')" class="hidden">Staff</button>
+      <button id="navDashboard" class="active" onclick="switchTab('dashboard')">🏠<br>Home</button>
+      <button id="navStudents" onclick="switchTab('students')">👥<br>Students</button>
+      <button id="navAttendance" onclick="switchTab('attendance')">✅<br>Attend.</button>
+      <button id="navExams" onclick="switchTab('exams')">📝<br>Marks</button>
+      <button id="navFees" onclick="switchTab('fees')">💰<br>Fees</button>
+      <button id="navStaff" onclick="switchTab('staff')" class="hidden">🔑<br>Staff</button>
     </nav>
     <main>
       <!-- Dashboard tab -->
@@ -183,6 +199,11 @@
         <div id="examMarksForm"></div>
         <button class="fullBtn hidden" id="saveExamBtn" onclick="saveExamMarks()" style="margin-top:12px;">Save Marks</button>
         <div id="examMessage" style="margin-top:10px;font-size:13px;"></div>
+
+        <div class="formActions" style="margin-top:16px;">
+          <button class="btnSecondary" style="flex:1;" onclick="printReportCard()">🖨 Report Card</button>
+          <button class="btnSecondary" style="flex:1;" onclick="printMarkList()">🖨 Mark List</button>
+        </div>
       </div>
 
       <!-- Fees tab -->
@@ -191,10 +212,26 @@
         <select id="feeClassSelect" onchange="loadFeeStudentList()" style="margin-bottom:12px;">
           <option value="">-- Select Class --</option>
         </select>
+        <div id="classFeeSummary"></div>
         <select id="feeStudentSelect" onchange="loadFeeDetail()" class="hidden" style="margin-bottom:16px;">
           <option value="">-- Select Student --</option>
         </select>
         <div id="feeDetail"></div>
+
+        <div class="formBox" id="duesFilterCard" style="margin-top:20px;">
+          <h3>Dues Filter</h3>
+          <div class="formRow">
+            <select id="duesThreshold">
+              <option value="1000">Above ₹1,000</option>
+              <option value="5000">Above ₹5,000</option>
+              <option value="10000">Above ₹10,000</option>
+              <option value="15000">Above ₹15,000</option>
+              <option value="20000">Above ₹20,000</option>
+            </select>
+            <button onclick="loadDuesFilter()">Show</button>
+          </div>
+          <div id="duesFilterResult" style="margin-top:10px;"></div>
+        </div>
       </div>
 
       <!-- Staff tab (Admin only) -->
@@ -223,9 +260,27 @@
           <div id="staffFormMessage" style="margin-top:10px;font-size:13px;"></div>
         </div>
         <div id="staffList"><div class="loadingMsg">Loading...</div></div>
+
+        <div class="sectionTitle" style="margin-top:24px;">
+          <h2>Sessions</h2>
+          <button class="fab" onclick="toggleNewSessionForm()">+ New Session</button>
+        </div>
+        <div class="formBox hidden" id="newSessionForm">
+          <h3>Start New Academic Session</h3>
+          <p style="font-size:12px;color:#6b7280;margin-top:0;">Sab students ki class +1 ho jayegi, Class 10 wale Alumni mein chale jayenge, bacha hua due naye session mein carry ho jayega. Current session lock ho jayega.</p>
+          <input id="newSessionName" placeholder="Naya session naam (e.g. 2027-28)">
+          <div class="formActions">
+            <button class="btnSecondary" onclick="toggleNewSessionForm()">Cancel</button>
+            <button class="btnPrimary" id="createSessionBtn" onclick="createNewSession()">Start Session</button>
+          </div>
+          <div id="sessionFormMessage" style="margin-top:10px;font-size:13px;"></div>
+        </div>
+        <div id="sessionsList"><div class="loadingMsg">Loading...</div></div>
       </div>
     </main>
   </div>
+
+  <div id="printFrame" class="printFrame"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script>
@@ -272,6 +327,7 @@
       document.getElementById('staffName').innerText = currentUser.staff_name;
       document.getElementById('staffRole').innerText = currentUser.role + ' - ' + currentUser.school_name;
       if (currentUser.role === 'Admin') document.getElementById('navStaff').classList.remove('hidden');
+      if (isTeacher()) document.getElementById('duesFilterCard').classList.add('hidden');
 
       const { data: sessionData, error: sessionError } = await client
         .from('sessions').select('id, name')
@@ -295,7 +351,7 @@
       if (tab === 'attendance') loadAttendanceClassList();
       if (tab === 'exams') loadExamClassList();
       if (tab === 'fees') loadFeeClassList();
-      if (tab === 'staff') loadStaff();
+      if (tab === 'staff') { loadStaff(); loadSessions(); }
     }
     function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
@@ -434,6 +490,7 @@
       const cls = document.getElementById('feeClassSelect').value;
       const sel = document.getElementById('feeStudentSelect');
       document.getElementById('feeDetail').innerHTML = '';
+      loadClassFeeSummary();
       if (!cls) { sel.classList.add('hidden'); return; }
 
       const { data } = await client.from('students').select('id, name')
@@ -996,6 +1053,212 @@
       document.getElementById('message').innerHTML = '';
       document.getElementById('appScreen').classList.add('hidden');
       document.getElementById('loginScreen').classList.remove('hidden');
+    }
+
+    /* ---------- SESSIONS (Admin only) ---------- */
+    async function loadSessions() {
+      const listEl = document.getElementById('sessionsList');
+      listEl.innerHTML = '<div class="loadingMsg">Loading...</div>';
+      const { data, error } = await client.from('sessions').select('*')
+        .eq('school_id', currentUser.school_id).order('created_at', { ascending: false });
+      if (error) { listEl.innerHTML = '<div class="loadingMsg">Error: ' + error.message + '</div>'; return; }
+      listEl.innerHTML = (data || []).map(s => `
+        <div class="sessionCard">
+          <div>
+            <b>${escapeHtml(s.name)}</b>
+            <div class="meta" style="font-size:12px;color:#6b7280;">
+              <span class="badge ${s.is_active ? 'badgeActive' : 'badgeLocked'}">${s.is_active ? 'Active' : (s.is_locked ? 'Locked' : 'Unlocked')}</span>
+            </div>
+          </div>
+          ${!s.is_active && isFullAdmin() ? `<button class="btnSecondary" style="flex:0 0 auto;padding:6px 12px;font-size:12px;" onclick="toggleSessionLock('${s.id}', ${s.is_locked})">${s.is_locked ? 'Unlock' : 'Lock'}</button>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function toggleNewSessionForm() {
+      document.getElementById('newSessionForm').classList.toggle('hidden');
+      document.getElementById('sessionFormMessage').innerHTML = '';
+    }
+
+    async function toggleSessionLock(sessionId, currentlyLocked) {
+      const { error } = await client.from('sessions').update({ is_locked: !currentlyLocked }).eq('id', sessionId);
+      if (error) { alert('Error: ' + error.message); return; }
+      loadSessions();
+    }
+
+    async function createNewSession() {
+      const newName = document.getElementById('newSessionName').value.trim();
+      const msgEl = document.getElementById('sessionFormMessage');
+      const btn = document.getElementById('createSessionBtn');
+      if (!newName) { msgEl.innerHTML = '<span class="error">Session naam bharo</span>'; return; }
+      if (!confirm('Pakka? Sab students promote ho jayenge aur "' + newName + '" naya active session ban jayega. Ye undo nahi ho sakta.')) return;
+
+      btn.disabled = true; btn.innerText = 'Processing...';
+      const { data, error } = await client.rpc('create_new_session', {
+        p_school_id: currentUser.school_id, p_old_session_id: currentSessionId, p_new_session_name: newName
+      });
+      btn.disabled = false; btn.innerText = 'Start Session';
+
+      if (error) { msgEl.innerHTML = '<span class="error">Error: ' + error.message + '</span>'; return; }
+      if (!data.success) { msgEl.innerHTML = '<span class="error">' + data.message + '</span>'; return; }
+
+      msgEl.innerHTML = '<span class="success">Naya session ban gaya! ' + data.promoted + ' promote, ' + data.passedOut + ' Alumni, ' + data.duesCarried + ' dues carried.</span>';
+      currentSessionId = data.newSessionId;
+      document.getElementById('newSessionName').value = '';
+      loadSessions();
+      loadDashboard();
+    }
+
+    /* ---------- CLASS FEE SUMMARY & DUES FILTER ---------- */
+    async function loadClassFeeSummary() {
+      const cls = document.getElementById('feeClassSelect').value;
+      const summaryEl = document.getElementById('classFeeSummary');
+      if (!cls) { summaryEl.innerHTML = ''; return; }
+      summaryEl.innerHTML = '<div class="loadingMsg">Loading...</div>';
+
+      const { data: students } = await client.from('students').select('id')
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId).eq('class', cls);
+      const studentIds = (students || []).map(s => s.id);
+
+      const { data: structures } = await client.from('fee_structure').select('base_fee, discount, van_fee, student_id')
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId).in('student_id', studentIds);
+      const { data: payments } = await client.from('fee_payments').select('amount, student_id')
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId).in('student_id', studentIds);
+
+      const paidMap = {};
+      (payments || []).forEach(p => { paidMap[p.student_id] = (paidMap[p.student_id] || 0) + Number(p.amount); });
+
+      let totalBase = 0, totalDiscount = 0, totalVan = 0, totalPaid = 0;
+      (structures || []).forEach(fs => {
+        totalBase += Number(fs.base_fee); totalDiscount += Number(fs.discount); totalVan += Number(fs.van_fee);
+        totalPaid += paidMap[fs.student_id] || 0;
+      });
+      const totalDue = totalBase - totalDiscount + totalVan - totalPaid;
+
+      if (isTeacher()) { summaryEl.innerHTML = ''; return; } // Teachers don't see class-wide amounts
+
+      summaryEl.innerHTML = `
+        <div class="grid" style="margin-bottom:16px;">
+          <div class="stat"><div class="num">₹${totalBase}</div><div class="lbl">Total Base</div></div>
+          <div class="stat"><div class="num">₹${totalPaid}</div><div class="lbl">Total Paid</div></div>
+          <div class="stat"><div class="num" style="color:${totalDue>0?'#d93025':'#188038'};">₹${totalDue}</div><div class="lbl">Total Due</div></div>
+          <div class="stat"><div class="num">${(students||[]).length}</div><div class="lbl">Students</div></div>
+        </div>`;
+    }
+
+    async function loadDuesFilter() {
+      const threshold = Number(document.getElementById('duesThreshold').value);
+      const resultEl = document.getElementById('duesFilterResult');
+      resultEl.innerHTML = '<div class="loadingMsg">Loading...</div>';
+
+      const { data: students } = await client.from('students').select('id, name, class')
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId);
+      const { data: structures } = await client.from('fee_structure').select('*')
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId);
+      const { data: payments } = await client.from('fee_payments').select('student_id, amount')
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId);
+
+      const structMap = {}; (structures || []).forEach(fs => { structMap[fs.student_id] = fs; });
+      const paidMap = {}; (payments || []).forEach(p => { paidMap[p.student_id] = (paidMap[p.student_id] || 0) + Number(p.amount); });
+
+      const results = (students || []).map(s => {
+        const fs = structMap[s.id];
+        if (!fs) return null;
+        const due = Number(fs.base_fee) - Number(fs.discount) + Number(fs.van_fee) - (paidMap[s.id] || 0);
+        return { name: s.name, class: s.class, due };
+      }).filter(r => r && r.due > threshold).sort((a, b) => b.due - a.due);
+
+      if (results.length === 0) { resultEl.innerHTML = '<div class="loadingMsg">Koi student is threshold se upar nahi</div>'; return; }
+      resultEl.innerHTML = results.map(r => `
+        <div class="studentCard"><b>${escapeHtml(r.name)}</b><div class="meta">Class ${escapeHtml(r.class)} &middot; Due: ₹${r.due}</div></div>
+      `).join('');
+    }
+
+    /* ---------- REPORT CARD & MARK LIST ---------- */
+    function gradeFor(pct) {
+      if (pct >= 91) return 'A1'; if (pct >= 81) return 'A2'; if (pct >= 71) return 'B1'; if (pct >= 61) return 'B2';
+      if (pct >= 51) return 'C1'; if (pct >= 41) return 'C2'; if (pct >= 33) return 'D'; if (pct >= 21) return 'E1'; return 'E2';
+    }
+    function baseSubject(key) { return key.endsWith('__NB') || key.endsWith('__CS') ? key.slice(0, -4) : key; }
+
+    async function printReportCard() {
+      const studentId = document.getElementById('examStudentSelect').value;
+      if (!studentId) { alert('Pehle ek student select karo'); return; }
+
+      const { data: student } = await client.from('students').select('*').eq('id', studentId).maybeSingle();
+      const { data: records } = await client.from('exams').select('*').eq('student_id', studentId).eq('session_id', currentSessionId);
+
+      const bySubject = {};
+      (records || []).forEach(r => {
+        const subj = baseSubject(r.subject);
+        if (!bySubject[subj]) bySubject[subj] = { exam: 0, nb: 0, cs: 0, max: 0 };
+        if (r.subject.endsWith('__NB')) { bySubject[subj].nb += Number(r.marks_obtained); bySubject[subj].max += Number(r.max_marks); }
+        else if (r.subject.endsWith('__CS')) { bySubject[subj].cs += Number(r.marks_obtained); bySubject[subj].max += Number(r.max_marks); }
+        else { bySubject[subj].exam += Number(r.marks_obtained); bySubject[subj].max += Number(r.max_marks); }
+      });
+
+      let grandObt = 0, grandMax = 0;
+      const rows = Object.keys(bySubject).map(subj => {
+        const s = bySubject[subj];
+        const total = s.exam + s.nb + s.cs;
+        grandObt += total; grandMax += s.max;
+        const pct = s.max > 0 ? (total / s.max * 100) : 0;
+        return `<tr><td style="text-align:left;">${escapeHtml(subj)}</td><td>${s.exam}</td><td>${s.nb}</td><td>${s.cs}</td><td>${total}/${s.max}</td><td>${gradeFor(pct)}</td></tr>`;
+      }).join('');
+
+      const overallPct = grandMax > 0 ? (grandObt / grandMax * 100) : 0;
+
+      document.getElementById('printFrame').innerHTML = `
+        <div class="rcHeader">
+          <h2>🏫 ${escapeHtml(currentUser.school_name)}</h2>
+          <div>Report Card — Session ${escapeHtml(String(currentSessionId).slice(0,8))}</div>
+        </div>
+        <p><b>Name:</b> ${escapeHtml(student.name)} &nbsp; <b>Class:</b> ${escapeHtml(student.class)}${student.section ? '-' + escapeHtml(student.section) : ''} &nbsp; <b>ID:</b> ${escapeHtml(student.student_code)}</p>
+        <table class="rcTable">
+          <tr><th>Subject</th><th>Exam</th><th>Notebook</th><th>Co-Scholastic</th><th>Total</th><th>Grade</th></tr>
+          ${rows}
+        </table>
+        <p><b>Overall:</b> ${grandObt}/${grandMax} (${overallPct.toFixed(1)}%) &nbsp; <b>Grade:</b> ${gradeFor(overallPct)}</p>
+      `;
+      window.print();
+    }
+
+    async function printMarkList() {
+      const cls = document.getElementById('examClassSelect').value;
+      if (!cls) { alert('Pehle Class select karo'); return; }
+
+      const { data: students } = await client.from('students').select('id, name')
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId).eq('class', cls);
+      const { data: records } = await client.from('exams').select('*')
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId)
+        .in('student_id', (students || []).map(s => s.id));
+
+      const totals = {};
+      (records || []).forEach(r => {
+        if (!totals[r.student_id]) totals[r.student_id] = { obt: 0, max: 0 };
+        totals[r.student_id].obt += Number(r.marks_obtained);
+        totals[r.student_id].max += Number(r.max_marks);
+      });
+
+      const rows = (students || []).map(s => {
+        const t = totals[s.id] || { obt: 0, max: 0 };
+        const pct = t.max > 0 ? (t.obt / t.max * 100) : 0;
+        return { name: s.name, obt: t.obt, max: t.max, pct };
+      }).sort((a, b) => b.pct - a.pct);
+
+      const rowsHtml = rows.map((r, i) => `<tr><td>${i+1}</td><td style="text-align:left;">${escapeHtml(r.name)}</td><td>${r.obt}/${r.max}</td><td>${r.pct.toFixed(1)}%</td></tr>`).join('');
+
+      document.getElementById('printFrame').innerHTML = `
+        <div class="rcHeader">
+          <h2>🏫 ${escapeHtml(currentUser.school_name)}</h2>
+          <div>Consolidated Mark List — Class ${escapeHtml(cls)}</div>
+        </div>
+        <table class="rcTable">
+          <tr><th>Rank</th><th>Name</th><th>Marks</th><th>%</th></tr>
+          ${rowsHtml}
+        </table>
+      `;
+      window.print();
     }
 
     document.getElementById('password').addEventListener('keydown', function(e) {
