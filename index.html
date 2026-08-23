@@ -1,0 +1,212 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SPS School Management</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; margin: 0; background: #f5f7fb; color: #1f2937; }
+    .hidden { display: none !important; }
+
+    /* Login screen */
+    #loginScreen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; background: linear-gradient(135deg, #1a73e8, #34a853); }
+    .card { background: white; border-radius: 20px; padding: 30px; width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); text-align: center; }
+    .card h1 { font-size: 20px; margin: 10px 0; }
+    .card p { color: #6b7280; font-size: 13px; margin-bottom: 20px; }
+    input { width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 15px; }
+    button { padding: 12px; background: #1a73e8; color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: bold; cursor: pointer; }
+    button:disabled { background: #a0aec0; }
+    .fullBtn { width: 100%; }
+    #message { margin-top: 15px; font-size: 13px; }
+    .error { color: #d93025; }
+    .success { color: #188038; }
+
+    /* App screen */
+    #appScreen { max-width: 700px; margin: 0 auto; padding-bottom: 30px; }
+    header { background: #1a73e8; color: white; padding: 16px; display: flex; justify-content: space-between; align-items: center; }
+    header .who b { display: block; font-size: 16px; }
+    header .who span { font-size: 12px; opacity: 0.85; }
+    header button { background: rgba(255,255,255,0.2); color: white; padding: 8px 14px; border-radius: 8px; font-size: 13px; }
+    main { padding: 16px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .stat { background: white; border-radius: 14px; padding: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); text-align: center; }
+    .stat .num { font-size: 26px; font-weight: bold; color: #1a73e8; }
+    .stat .lbl { font-size: 12px; color: #6b7280; margin-top: 4px; }
+    .loadingMsg { text-align: center; padding: 30px; color: #6b7280; grid-column: 1 / -1; }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen">
+    <div class="card">
+      <h1>SPS School Management</h1>
+      <p>Apna username aur password daalo</p>
+      <input id="username" placeholder="Username" autocomplete="username">
+      <input id="password" type="password" placeholder="Password" autocomplete="current-password">
+      <button class="fullBtn" id="loginBtn" onclick="doLogin()">Login</button>
+      <div id="message"></div>
+    </div>
+  </div>
+
+  <!-- APP SCREEN (after login) -->
+  <div id="appScreen" class="hidden">
+    <header>
+      <div class="who">
+        <b id="staffName">-</b>
+        <span id="staffRole">-</span>
+      </div>
+      <button onclick="doLogout()">Logout</button>
+    </header>
+    <main>
+      <h2>Dashboard</h2>
+      <div class="grid" id="statsGrid">
+        <div class="loadingMsg">Loading...</div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script>
+    const SUPABASE_URL = "https://qrucqcgsdbayhqdfhwau.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_SAEI4DqB41pWQxeAHAQIJg_Oz_Iat_Q";
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let currentUser = null; // { staff_id, staff_name, role, school_id, ... }
+    let currentSessionId = null;
+
+    async function doLogin() {
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const messageDiv = document.getElementById('message');
+      const btn = document.getElementById('loginBtn');
+
+      if (!username || !password) {
+        messageDiv.innerHTML = '<span class="error">Username aur password dono bharo</span>';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerText = 'Checking...';
+      messageDiv.innerHTML = '';
+
+      const { data, error } = await client.rpc('verify_login', {
+        p_username: username,
+        p_password: password
+      });
+
+      btn.disabled = false;
+      btn.innerText = 'Login';
+
+      if (error) {
+        messageDiv.innerHTML = '<span class="error">Error: ' + error.message + '</span>';
+        return;
+      }
+      if (!data || data.length === 0) {
+        messageDiv.innerHTML = '<span class="error">Galat username ya password</span>';
+        return;
+      }
+
+      currentUser = data[0];
+      enterApp();
+    }
+
+    async function enterApp() {
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('appScreen').classList.remove('hidden');
+      document.getElementById('staffName').innerText = currentUser.staff_name;
+      document.getElementById('staffRole').innerText = currentUser.role + ' - ' + currentUser.school_name;
+
+      // Find this school's currently active session
+      const { data: sessionData, error: sessionError } = await client
+        .from('sessions')
+        .select('id, name')
+        .eq('school_id', currentUser.school_id)
+        .eq('is_active', true)
+        .limit(1);
+
+      if (sessionError || !sessionData || sessionData.length === 0) {
+        document.getElementById('statsGrid').innerHTML = '<div class="loadingMsg">Koi active session nahi mila</div>';
+        return;
+      }
+      currentSessionId = sessionData[0].id;
+      loadDashboard();
+    }
+
+    async function loadDashboard() {
+      const grid = document.getElementById('statsGrid');
+      grid.innerHTML = '<div class="loadingMsg">Loading...</div>';
+
+      const today = new Date().toISOString().slice(0, 10);
+
+      // Total students
+      const { count: totalStudents } = await client
+        .from('students')
+        .select('*', { count: 'exact', head: true })
+        .eq('school_id', currentUser.school_id)
+        .eq('session_id', currentSessionId);
+
+      // Present today
+      const { count: presentToday } = await client
+        .from('attendance')
+        .select('*', { count: 'exact', head: true })
+        .eq('school_id', currentUser.school_id)
+        .eq('session_id', currentSessionId)
+        .eq('date', today)
+        .eq('status', 'Present');
+
+      // Absent today
+      const { count: absentToday } = await client
+        .from('attendance')
+        .select('*', { count: 'exact', head: true })
+        .eq('school_id', currentUser.school_id)
+        .eq('session_id', currentSessionId)
+        .eq('date', today)
+        .eq('status', 'Absent');
+
+      // Pending fees: students whose (base - discount + van) > total paid
+      const { data: structures } = await client
+        .from('fee_structure')
+        .select('student_id, base_fee, discount, van_fee')
+        .eq('school_id', currentUser.school_id)
+        .eq('session_id', currentSessionId);
+      const { data: payments } = await client
+        .from('fee_payments')
+        .select('student_id, amount')
+        .eq('school_id', currentUser.school_id)
+        .eq('session_id', currentSessionId);
+
+      const paidByStudent = {};
+      (payments || []).forEach(p => { paidByStudent[p.student_id] = (paidByStudent[p.student_id] || 0) + Number(p.amount); });
+      let pendingFees = 0;
+      (structures || []).forEach(fs => {
+        const due = Number(fs.base_fee) - Number(fs.discount) + Number(fs.van_fee);
+        const paid = paidByStudent[fs.student_id] || 0;
+        if (due > paid) pendingFees++;
+      });
+
+      grid.innerHTML = `
+        <div class="stat"><div class="num">${totalStudents || 0}</div><div class="lbl">Total Students</div></div>
+        <div class="stat"><div class="num">${presentToday || 0}</div><div class="lbl">Present Today</div></div>
+        <div class="stat"><div class="num">${absentToday || 0}</div><div class="lbl">Absent Today</div></div>
+        <div class="stat"><div class="num">${pendingFees}</div><div class="lbl">Pending Fees</div></div>
+      `;
+    }
+
+    function doLogout() {
+      currentUser = null;
+      currentSessionId = null;
+      document.getElementById('username').value = '';
+      document.getElementById('password').value = '';
+      document.getElementById('message').innerHTML = '';
+      document.getElementById('appScreen').classList.add('hidden');
+      document.getElementById('loginScreen').classList.remove('hidden');
+    }
+
+    document.getElementById('password').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') doLogin();
+    });
+  </script>
+</body>
+</html>
