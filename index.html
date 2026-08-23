@@ -230,6 +230,10 @@
     let currentUser = null;
     let currentSessionId = null;
 
+    function isAdmin() { return currentUser && (currentUser.role === 'Admin' || currentUser.role === 'Admin2'); }
+    function isFullAdmin() { return currentUser && currentUser.role === 'Admin'; }
+    function isTeacher() { return currentUser && currentUser.role === 'Teacher'; }
+
     async function doLogin() {
       const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value;
@@ -291,6 +295,13 @@
 
     async function populateClassDropdown(selectId) {
       const sel = document.getElementById(selectId);
+      if (isTeacher()) {
+        sel.innerHTML = '<option value="' + currentUser.assigned_class + '">Class ' + currentUser.assigned_class + '</option>';
+        sel.value = currentUser.assigned_class;
+        sel.disabled = true;
+        sel.dispatchEvent(new Event('change'));
+        return;
+      }
       if (sel.options.length > 1) return;
       const { data } = await client.from('students').select('class')
         .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId);
@@ -430,6 +441,17 @@
       const totalPaid = (payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
       const remaining = totalDue - totalPaid;
 
+      // Teachers only ever see Paid/Due status, never amounts.
+      if (isTeacher()) {
+        detailEl.innerHTML = `
+          <div class="formBox" style="text-align:center;">
+            <span class="stat" style="display:inline-block;padding:10px 20px;background:${remaining > 0 ? '#feeceb' : '#eaf5ee'};color:${remaining > 0 ? '#d93025' : '#188038'};border-radius:8px;font-weight:bold;">
+              ${remaining > 0 ? 'Fees Due' : 'Fully Paid'}
+            </span>
+          </div>`;
+        return;
+      }
+
       detailEl.innerHTML = `
         <div class="formBox">
           <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Base Fee</span><b>₹${base}</b></div>
@@ -437,18 +459,66 @@
           ${van > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Van Fee</span><b>₹${van}</b></div>` : ''}
           <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Total Paid</span><b style="color:#188038;">₹${totalPaid}</b></div>
           <div style="display:flex;justify-content:space-between;font-size:16px;border-top:1px solid #e5e7eb;padding-top:8px;margin-top:4px;"><span>Remaining Due</span><b style="color:${remaining>0?'#d93025':'#188038'};">₹${remaining}</b></div>
+          ${isFullAdmin() ? `<button class="btnSecondary fullBtn" style="margin-top:12px;" onclick="toggleFeeStructureEdit('${studentId}', ${base}, ${discount}, ${van})">Edit Discount / Van Facility</button>` : ''}
         </div>
+        <div class="formBox hidden" id="feeStructureEditBox">
+          <h3>Edit Discount / Van Facility</h3>
+          <label style="font-size:12px;color:#6b7280;">Discount Amount (₹)</label>
+          <input id="fs_discount" type="number" placeholder="0">
+          <label style="display:flex;align-items:center;gap:8px;font-size:14px;margin:10px 0;">
+            <input type="checkbox" id="fs_vanAvailed" style="width:auto;margin:0;" onchange="toggleVanFeeField()"> Van Facility Availed
+          </label>
+          <input id="fs_vanFee" type="number" placeholder="Van Fee Amount (₹)" class="hidden">
+          <div class="formActions">
+            <button class="btnSecondary" onclick="document.getElementById('feeStructureEditBox').classList.add('hidden')">Cancel</button>
+            <button class="btnPrimary" id="saveFeeStructureBtn" onclick="saveFeeStructure('${studentId}')">Save</button>
+          </div>
+          <div id="feeStructureMessage" style="margin-top:10px;font-size:13px;"></div>
+        </div>
+        ${isFullAdmin() ? `
         <div class="formBox">
           <h3>Record a Payment</h3>
           <input id="fee_month" placeholder="Month (e.g. August 2026)">
           <input id="fee_amount" type="number" placeholder="Amount (₹)">
           <button class="fullBtn" id="savePaymentBtn" onclick="savePayment('${studentId}')">Save Payment</button>
           <div id="paymentMessage" style="margin-top:10px;font-size:13px;"></div>
-        </div>
+        </div>` : ''}
         <h3 style="margin:16px 0 8px;">Payment History</h3>
         ${(payments||[]).length === 0 ? '<div class="loadingMsg">Koi payment abhi tak nahi hui</div>' :
           payments.map(p => `<div class="studentCard"><b>₹${p.amount}</b><div class="meta">${escapeHtml(p.month||'-')} &middot; ${p.paid_date}</div></div>`).join('')}
       `;
+    }
+
+    function toggleFeeStructureEdit(studentId, base, discount, van) {
+      const box = document.getElementById('feeStructureEditBox');
+      box.classList.remove('hidden');
+      document.getElementById('fs_discount').value = discount || '';
+      document.getElementById('fs_vanAvailed').checked = van > 0;
+      document.getElementById('fs_vanFee').value = van || '';
+      document.getElementById('fs_vanFee').classList.toggle('hidden', !(van > 0));
+      window.scrollTo(0, document.body.scrollHeight / 3);
+    }
+    function toggleVanFeeField() {
+      document.getElementById('fs_vanFee').classList.toggle('hidden', !document.getElementById('fs_vanAvailed').checked);
+    }
+
+    async function saveFeeStructure(studentId) {
+      const discount = Number(document.getElementById('fs_discount').value) || 0;
+      const vanAvailed = document.getElementById('fs_vanAvailed').checked;
+      const vanFee = vanAvailed ? (Number(document.getElementById('fs_vanFee').value) || 0) : 0;
+      const msgEl = document.getElementById('feeStructureMessage');
+      const btn = document.getElementById('saveFeeStructureBtn');
+
+      btn.disabled = true; btn.innerText = 'Saving...';
+      const { error } = await client.from('fee_structure')
+        .update({ discount, van_fee: vanFee, van_availed: vanAvailed })
+        .eq('student_id', studentId).eq('session_id', currentSessionId);
+      btn.disabled = false; btn.innerText = 'Save';
+
+      if (error) { msgEl.innerHTML = '<span class="error">Error: ' + error.message + '</span>'; return; }
+      msgEl.innerHTML = '<span class="success">Update ho gaya!</span>';
+      loadFeeDetail();
+      loadDashboard();
     }
 
     async function savePayment(studentId) {
@@ -652,30 +722,72 @@
       const listEl = document.getElementById('studentsList');
       listEl.innerHTML = '<div class="loadingMsg">Loading...</div>';
 
-      const { data, error } = await client.from('students').select('*')
-        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId)
-        .order('created_at', { ascending: false });
+      let query = client.from('students').select('*')
+        .eq('school_id', currentUser.school_id).eq('session_id', currentSessionId);
+      if (isTeacher()) query = query.eq('class', currentUser.assigned_class);
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) { listEl.innerHTML = '<div class="loadingMsg">Error: ' + error.message + '</div>'; return; }
       if (!data || data.length === 0) { listEl.innerHTML = '<div class="loadingMsg">Koi student nahi mila</div>'; return; }
 
+      window._studentsCache = data;
       listEl.innerHTML = data.map(s => `
         <div class="studentCard">
           <b>${escapeHtml(s.name)}</b>
           <div class="meta">${escapeHtml(s.student_code)} &middot; Class ${escapeHtml(s.class)}${s.section ? '-' + escapeHtml(s.section) : ''}</div>
           <div class="meta">Father: ${escapeHtml(s.father_name || '-')} &middot; Contact: ${escapeHtml(s.contact_no || '-')}</div>
+          ${isAdmin() ? `<div class="formActions" style="margin-top:8px;">
+            <button class="btnSecondary" style="flex:0 0 auto;padding:6px 12px;font-size:12px;" onclick="editStudent('${s.id}')">Edit</button>
+            ${isFullAdmin() ? `<button class="btnSecondary" style="flex:0 0 auto;padding:6px 12px;font-size:12px;background:#feeceb;color:#d93025;" onclick="deleteStudent('${s.id}')">Delete</button>` : ''}
+          </div>` : ''}
         </div>
       `).join('');
     }
 
+    let editingStudentId = null;
+
+    function editStudent(id) {
+      const s = (window._studentsCache || []).find(x => x.id === id);
+      if (!s) return;
+      editingStudentId = id;
+      document.getElementById('addStudentForm').classList.remove('hidden');
+      document.getElementById('s_name').value = s.name || '';
+      document.getElementById('s_class').value = s.class || '';
+      document.getElementById('s_section').value = s.section || '';
+      document.getElementById('s_dob').value = s.dob || '';
+      document.getElementById('s_gender').value = s.gender || '';
+      document.getElementById('s_father').value = s.father_name || '';
+      document.getElementById('s_mother').value = s.mother_name || '';
+      document.getElementById('s_contact').value = s.contact_no || '';
+      document.getElementById('s_address').value = s.address || '';
+      document.querySelector('#addStudentForm h3').innerText = 'Edit Student';
+      window.scrollTo(0, 0);
+    }
+
+    async function deleteStudent(id) {
+      if (!confirm('Ye student delete karna hai? Ye undo nahi ho sakta.')) return;
+      const { error } = await client.from('students').delete().eq('id', id);
+      if (error) { alert('Error: ' + error.message); return; }
+      loadStudents();
+      loadDashboard();
+    }
+
     function toggleAddStudentForm() {
-      document.getElementById('addStudentForm').classList.toggle('hidden');
+      const form = document.getElementById('addStudentForm');
+      const willShow = form.classList.contains('hidden');
+      form.classList.toggle('hidden');
       document.getElementById('studentFormMessage').innerHTML = '';
+      if (willShow && editingStudentId === null) {
+        document.querySelector('#addStudentForm h3').innerText = 'Add New Student';
+        ['s_name','s_class','s_section','s_dob','s_gender','s_father','s_mother','s_contact','s_address'].forEach(id => document.getElementById(id).value = '');
+        if (isTeacher()) document.getElementById('s_class').value = currentUser.assigned_class;
+      }
+      if (!willShow) editingStudentId = null; // closing/cancelling clears edit mode
     }
 
     async function saveStudent() {
       const name = document.getElementById('s_name').value.trim();
-      const cls = document.getElementById('s_class').value.trim();
+      let cls = document.getElementById('s_class').value.trim();
       const section = document.getElementById('s_section').value.trim();
       const dob = document.getElementById('s_dob').value || null;
       const gender = document.getElementById('s_gender').value;
@@ -686,6 +798,8 @@
       const msgEl = document.getElementById('studentFormMessage');
       const btn = document.getElementById('saveStudentBtn');
 
+      if (isTeacher()) cls = currentUser.assigned_class; // Teachers can only ever add/edit within their own class
+
       if (!name || !cls) {
         msgEl.innerHTML = '<span class="error">Name aur Class zaroori hai</span>';
         return;
@@ -694,6 +808,20 @@
       btn.disabled = true;
       btn.innerText = 'Saving...';
       msgEl.innerHTML = '';
+
+      if (editingStudentId) {
+        const { error } = await client.from('students').update({
+          name, class: cls, section, dob, gender,
+          father_name: father, mother_name: mother, contact_no: contact, address
+        }).eq('id', editingStudentId);
+
+        btn.disabled = false; btn.innerText = 'Save';
+        if (error) { msgEl.innerHTML = '<span class="error">Error: ' + error.message + '</span>'; return; }
+        msgEl.innerHTML = '<span class="success">Student update ho gaya!</span>';
+        editingStudentId = null;
+        loadStudents();
+        return;
+      }
 
       const { data, error } = await client.rpc('add_student', {
         p_school_id: currentUser.school_id,
