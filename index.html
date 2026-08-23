@@ -367,6 +367,7 @@
     }
 
     function switchTab(tab) {
+      if (tab === 'staff' && !isFullAdmin()) { alert('Permission denied'); tab = 'dashboard'; }
       ['dashboard','students','attendance','exams','fees','staff'].forEach(t => {
         document.getElementById('tab' + capitalize(t)).classList.toggle('hidden', t !== tab);
         document.getElementById('nav' + capitalize(t)).classList.toggle('active', t === tab);
@@ -593,6 +594,7 @@
     }
 
     function toggleFeeStructureEdit(studentId, base, discount, van) {
+      if (!isFullAdmin()) { alert('Permission denied'); return; }
       const box = document.getElementById('feeStructureEditBox');
       box.classList.remove('hidden');
       document.getElementById('fs_discount').value = discount || '';
@@ -606,6 +608,7 @@
     }
 
     async function saveFeeStructure(studentId) {
+      if (!isFullAdmin()) { alert('Permission denied'); return; }
       const discount = Number(document.getElementById('fs_discount').value) || 0;
       const vanAvailed = document.getElementById('fs_vanAvailed').checked;
       const vanFee = vanAvailed ? (Number(document.getElementById('fs_vanFee').value) || 0) : 0;
@@ -625,6 +628,7 @@
     }
 
     async function savePayment(studentId) {
+      if (!isFullAdmin()) { alert('Permission denied'); return; }
       const month = document.getElementById('fee_month').value.trim();
       const amount = Number(document.getElementById('fee_amount').value);
       const msgEl = document.getElementById('paymentMessage');
@@ -668,6 +672,7 @@
     let editingStaffId = null;
 
     function editStaff(id) {
+      if (!isFullAdmin()) { alert('Permission denied'); return; }
       const s = (window._staffCache || []).find(x => x.id === id);
       if (!s) return;
       editingStaffId = id;
@@ -682,6 +687,7 @@
     }
 
     async function deleteStaff(id) {
+      if (!isFullAdmin()) { alert('Permission denied'); return; }
       if (!confirm('Ye staff account delete karna hai?')) return;
       const { error } = await client.from('staff').delete().eq('id', id);
       if (error) { alert('Error: ' + error.message); return; }
@@ -689,6 +695,7 @@
     }
 
     function toggleAddStaffForm() {
+      if (!isFullAdmin()) { alert('Permission denied'); return; }
       const form = document.getElementById('addStaffForm');
       const willShow = form.classList.contains('hidden');
       form.classList.toggle('hidden');
@@ -706,6 +713,7 @@
     }
 
     async function saveStaff() {
+      if (!isFullAdmin()) { alert('Permission denied'); return; }
       const name = document.getElementById('st_name').value.trim();
       const username = document.getElementById('st_username').value.trim();
       const password = document.getElementById('st_password').value;
@@ -887,6 +895,7 @@
     }
 
     async function deleteAttendanceRow(id) {
+      if (!isAdmin()) { alert('Permission denied'); return; }
       if (!confirm('Ye attendance record delete karna hai?')) return;
       const { error } = await client.from('attendance').delete().eq('id', id);
       if (error) { alert('Error: ' + error.message); return; }
@@ -951,7 +960,7 @@
           <div class="meta">Father: ${escapeHtml(s.father_name || '-')} &middot; Contact: ${escapeHtml(s.contact_no || '-')}</div>
           ${isAdmin() ? `<div class="formActions" style="margin-top:8px;">
             <button class="btnSecondary" style="flex:0 0 auto;padding:6px 12px;font-size:12px;" onclick="editStudent('${s.id}')">Edit</button>
-            ${isFullAdmin() ? `<button class="btnSecondary" style="flex:0 0 auto;padding:6px 12px;font-size:12px;background:#feeceb;color:#d93025;" onclick="deleteStudent('${s.id}')">Delete</button>` : ''}
+            ${isAdmin() ? `<button class="btnSecondary" style="flex:0 0 auto;padding:6px 12px;font-size:12px;background:#feeceb;color:#d93025;" onclick="deleteStudent('${s.id}')">Delete</button>` : ''}
           </div>` : ''}
         </div>
       `).join('');
@@ -978,6 +987,7 @@
     }
 
     async function deleteStudent(id) {
+      if (!isAdmin()) { alert('Permission denied'); return; }
       if (!confirm('Ye student delete karna hai? Ye undo nahi ho sakta.')) return;
       const { error } = await client.from('students').delete().eq('id', id);
       if (error) { alert('Error: ' + error.message); return; }
@@ -1101,17 +1111,20 @@
     }
 
     function toggleNewSessionForm() {
+      if (!isFullAdmin()) { alert('Permission denied'); return; }
       document.getElementById('newSessionForm').classList.toggle('hidden');
       document.getElementById('sessionFormMessage').innerHTML = '';
     }
 
     async function toggleSessionLock(sessionId, currentlyLocked) {
+      if (!isFullAdmin()) { alert('Permission denied'); return; }
       const { error } = await client.from('sessions').update({ is_locked: !currentlyLocked }).eq('id', sessionId);
       if (error) { alert('Error: ' + error.message); return; }
       loadSessions();
     }
 
     async function createNewSession() {
+      if (!isFullAdmin()) { alert('Permission denied'); return; }
       const newName = document.getElementById('newSessionName').value.trim();
       const msgEl = document.getElementById('sessionFormMessage');
       const btn = document.getElementById('createSessionBtn');
