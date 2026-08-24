@@ -589,7 +589,11 @@
         </div>` : ''}
         <h3 style="margin:16px 0 8px;">Payment History</h3>
         ${(payments||[]).length === 0 ? '<div class="loadingMsg">Koi payment abhi tak nahi hui</div>' :
-          payments.map(p => `<div class="studentCard"><b>₹${p.amount}</b><div class="meta">${escapeHtml(p.month||'-')} &middot; ${p.paid_date}</div></div>`).join('')}
+          payments.map(p => `<div class="studentCard">
+            <b>₹${p.amount}</b>
+            <div class="meta">${escapeHtml(p.month||'-')} &middot; ${p.paid_date}</div>
+            <button class="btnSecondary" style="margin-top:8px;padding:6px 12px;font-size:12px;" onclick="printReceipt('${p.id}')">🖨 Print Receipt</button>
+          </div>`).join('')}
       `;
     }
 
@@ -647,6 +651,61 @@
       msgEl.innerHTML = '<span class="success">Payment save ho gaya!</span>';
       loadFeeDetail();
       loadDashboard();
+    }
+
+    async function printReceipt(paymentId) {
+      if (!isAdmin()) { alert('Permission denied'); return; }
+
+      const { data: payment } = await client.from('fee_payments').select('*').eq('id', paymentId).maybeSingle();
+      if (!payment) { alert('Payment record nahi mila'); return; }
+
+      const { data: student } = await client.from('students').select('*').eq('id', payment.student_id).maybeSingle();
+      const { data: fs } = await client.from('fee_structure').select('*')
+        .eq('student_id', payment.student_id).eq('session_id', currentSessionId).maybeSingle();
+
+      let advanceNote = '';
+      if (fs) {
+        const totalDue = Number(fs.base_fee) - Number(fs.discount) + Number(fs.van_fee);
+        const { data: otherPayments } = await client.from('fee_payments').select('amount')
+          .eq('student_id', payment.student_id).eq('session_id', currentSessionId).neq('id', paymentId);
+        const otherPaid = (otherPayments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+        const dueBefore = Math.max(totalDue - otherPaid, 0);
+        const paidAmt = Number(payment.amount);
+        if (paidAmt > dueBefore) {
+          const excess = paidAmt - dueBefore;
+          advanceNote = `<div class="rcRemarkBox"><div class="rcRemarkTitle">Note</div><div class="rcRemarkText">₹${excess} of this payment exceeds the current due and has been recorded as an ADVANCE PAYMENT for the next session.</div></div>`;
+        }
+      }
+
+      const breakdown = fs ? `<div style="margin-top:10px;font-size:11px;color:#555;">
+        <b>Fee Breakdown for this student:</b> Base Fee ₹${fs.base_fee}${fs.discount > 0 ? ` - Discount ₹${fs.discount}` : ''}${fs.van_availed ? ` + Van Fee ₹${fs.van_fee}` : ''}
+      </div>` : '';
+
+      document.getElementById('printFrame').innerHTML = `
+        <div class="rcFrame">
+          <div class="rcHeader">
+            <img src="${SCHOOL_LOGO}" class="rcLogo">
+            <div class="rcHeaderText">
+              <div class="rcSchoolName">${escapeHtml(currentUser.school_name)}</div>
+              <div class="rcAegis">Under the aegis of Satyapath Seva Sansthan</div>
+              <div class="rcAddress">National Highway NH2, Agra Road, Near Chaumukhi Mahadev Temple,<br>Shikohabad, District Firozabad, Uttar Pradesh</div>
+              <div class="rcPhone">Phone: 056-76-355870</div>
+            </div>
+          </div>
+          <div class="rcTitle">FEE RECEIPT</div>
+          <table class="rcInfoTable">
+            <tr><td><b>Receipt No</b></td><td>${escapeHtml(payment.receipt_no || '-')}</td></tr>
+            <tr><td><b>Student</b></td><td>${escapeHtml(student.name)} (${escapeHtml(student.student_code)})</td></tr>
+            <tr><td><b>Class</b></td><td>${escapeHtml(student.class)}${student.section ? '-' + escapeHtml(student.section) : ''}</td></tr>
+            <tr><td><b>Month</b></td><td>${escapeHtml(payment.month || '-')}</td></tr>
+            <tr><td><b>Amount Paid</b></td><td>₹${payment.amount}</td></tr>
+            <tr><td><b>Paid Date</b></td><td>${payment.paid_date || '-'}</td></tr>
+          </table>
+          ${breakdown}
+          ${advanceNote}
+        </div>
+      `;
+      window.print();
     }
 
     /* ---------- STAFF (Admin only) ---------- */
